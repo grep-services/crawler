@@ -1,6 +1,9 @@
 package main.java.services.grep.processors;
 
+import java.util.Iterator;
 import java.util.List;
+
+import main.java.services.grep.utils.Constants;
 
 /**
  * 
@@ -36,12 +39,22 @@ public class AccountProvider {
 	
 	/*
 	 * inserted된 모든 account들은 하나의 thread가 돌면서 다 remaining을 새로 갱신한다.
-	 * 기존 algorithm이 복잡하면, periodically하게 일정 시간마다 돌면서 free account들에 대해서만 query 1개씩 날려서 remaining 갱신할 수도 있다.
+	 * 기존 algorithm이 복잡하면, periodically하게 일정 시간마다 돌면서 unavailable account들에 대해서만 query 1개씩 날려서 remaining 갱신할 수도 있다.
 	 * (그냥 이 방법이 차라리 더 나을 수도 있다. queue에 timestamp 다 저장하고, 일일히 비교하고 하는 것보다...)
 	 */
-	
-	public AccountProvider() {
-		// 나중에는 init을 하냐 안하냐를 받을 수 있을 것 같다.
+	public AccountProvider(AccountCallback callback) {// 최소한 callback은 있어야 한다.
+		this(callback, false);// 변수 없으면 첫 실행이라고 가정한다.
+	}
+	public AccountProvider(AccountCallback callback, boolean isInitiated) {
+		// set callback
+		setAccountCallback(callback);
+		// init accounts
+		if(!isInitiated) {
+			initAccount();
+		}
+		// observer 만들고 실행. init하면서 이미 remaining set되었겠지만 겹치게 놔둔다. 빼면 1개단위 추가할 때 바로 적용도 안되고, 차라리 겹치는게 낫다.
+		observer = new AccountObserver();
+		observer.start();
 	}
 	
 	public void setAccountCallback(AccountCallback callback) {
@@ -55,9 +68,11 @@ public class AccountProvider {
 	 * 그리고, 받는 것으로 끝이 아니라, 받은 후 몇가지 설정도 해야 한다.
 	 */
 	public void initAccount() {
-		// input 받고 parsing.
-		// remains, task-status까지 설정해야 한다.
+		// input 받고 parsing. - 받았다고 치고 한다.
+		// remains, task-status까지 설정해야 한다. - insertAccount에서 된다.
+		insertAccount("", "", "", null);
 		// 그리고는 callback 날린다.
+		callback.onAccountInit(accounts);
 	}
 	
 	/*
@@ -72,14 +87,33 @@ public class AccountProvider {
 	 * 
 	 * 아니면, 그냥 queue가 빈 대로 놔두는 것이다.
 	 * 다만 이렇게 하면 최대 1시간을 기다려서 remaining을 limit로 만들어두고 사용하는수밖에 없는데 이렇게 되면 너무 test와 독립적이 되어버려서 쓰기 힘들다.
+	 * 
+	 * 일단 지금 결론은, 주기적 check 및 update이다.
+	 * 그리고 insert같은 작업들이 꼭 file을 통해서 오라는 법도 없고 terminal을 통해서 실시간으로 들어올 수도 있도록 만들 것이다.
 	 */
-	public void insertAccount() {
-		
+	public void insertAccount(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+		// 일단 account를 만든다.
+		Account account = new Account(client_id, client_secret, access_token, processing_type);
+		// 그리고 remaining reset한다. 놔둬도 reset은 되겠지만, 만들어지자마자 해주는게 더 나을 것이다.
+		account.updateRateRemaining();
+		// 다 되고나서야 추가를 한다. 그래야 실제 사용 가능할 것이다.
+		accounts.add(account);
+		// callback 날린다.
+		callback.onAccountInserted(account);
 	}
 	
 	// 사용 간편하게 하려면, stop 등등의 절차 없이, remove에서 알아서 모든걸 해줘야 한다.
-	public void removeAccount() {
-		
+	public void removeAccount(String client_id) {
+		// iterator 써서 해야 되는 것 같다.
+		for(Iterator<Account> iterator = accounts.iterator(); iterator.hasNext();) {
+			Account account = iterator.next();
+			
+			if(account.getClientId().equals(client_id)) {
+				iterator.remove();
+				
+				break;
+			}
+		}
 	}
 	
 	// 위와 같은 맥락에서, sync, scheduling 등의 처리도 manually하게 하지 않고 내부적으로 다 해줘야 한다.
@@ -90,7 +124,7 @@ public class AccountProvider {
 	/*
 	 * list 등 참조하기 위해 inner class로 정의.
 	 * 
-	 * remain 모자라서 unavailable이거나, 일반 free인 account들 remaining 갱신해준다.
+	 * remain 모자라서 unavailable인 것만 remaining 갱신해준다.
 	 * 그리고 main으로 call-back 해서 task manager에까지 전달되게끔 한다.
 	 * 거기도 따로 observer를 만들 수 있었겠지만 많아서 좋을 것 없고, call-back 방식이 더 빠르다.
 	 */
@@ -101,6 +135,20 @@ public class AccountProvider {
 		@Override
 		public void run() {
 			try {
+				synchronized(accounts) {// accounts 건들고 있을때 다른데서 추가/변경/삭제 못하게 막아둔다.(꼭 필요한 부분만 했다.)
+					for(Account account : accounts) {
+						if(account.getTaskStatus() == TaskStatus.UNAVAILABLE) {
+							int rate_remaining = account.updateRateRemaining();
+							
+							if(rate_remaining != Constants.INT_NULL) {
+								if(rate_remaining >= RATE_LIMIT / 2) {
+									account.setTaskStatus(TaskStatus.FREE);
+								}
+							}
+						}
+					}
+				}
+				
 				Thread.sleep(OBSERVATION_PERIOD);
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block

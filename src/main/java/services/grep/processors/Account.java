@@ -2,10 +2,13 @@ package main.java.services.grep.processors;
 
 import java.util.List;
 
+import main.java.services.grep.exceptions.PageNotFoundException;
+import main.java.services.grep.exceptions.RateLimitExceedException;
 import main.java.services.grep.utils.Constants;
 
 import org.jinstagram.Instagram;
 import org.jinstagram.auth.model.Token;
+import org.jinstagram.entity.common.Pagination;
 import org.jinstagram.entity.tags.TagMediaFeed;
 import org.jinstagram.entity.users.feed.MediaFeed;
 import org.jinstagram.entity.users.feed.MediaFeedData;
@@ -31,17 +34,19 @@ public class Account {
 	private int rate_remaining;
 	// real-time checking은 100퍼센트 정확하기도 애매하고, 외부에서의 query도 생각 안할 수 없고, 실시간 체크라는 부담 등의 이유로 주기적 check로 바꾸기로 했다.
 	//private Queue query_box;// remaining은 query를 날려봐야 확인 가능하고, 실시간으로 날려서 remaining 갱신할 수 없으니, 여기서 thread로 집계/관리한다.
-	private enum TaskStatus {UNAVAILABLE, FREE, RESERVED, WORKING};// 추후 monitoring시 .name()으로 쉽게 출력하기 위해 enum을 간단히 사용.
-	private enum ProcessingType {NONE, SERIAL, PARALLEL, BOTH};// 추후 monitoring시 .name()으로 쉽게 출력하기 위해 enum을 간단히 사용.
-	private TaskStatus task_status;
-	private ProcessingType processing_type;
+	private ProcessingType processing_type;// none, serial, parallel, both
+	private TaskStatus task_status;// unuavailable, free, reserved, working
 	
-	public Account(String client_id, String client_secret, String access_token, ProcessingType a) {
+	public Account(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+		this(client_id, client_secret, access_token, processing_type, TaskStatus.UNAVAILABLE);// status 안받으면 unavailable 처리.
+	}
+	
+	public Account(String client_id, String client_secret, String access_token, ProcessingType processing_type, TaskStatus task_status) {
 		this.client_id = client_id;
 		this.client_secret = client_secret;
 		this.access_token = access_token;
-		
 		this.processing_type = processing_type;
+		this.task_status = task_status;
 	}
 	
 	// account 사용 가능하게 하는 초기화.
@@ -51,8 +56,23 @@ public class Account {
 		instagram = new Instagram(token);
 	}
 	
+	public String getClientId() {
+		return client_id;
+	}
+	
+	// 외부에서 get해서 set도 되지만, 내무에서 다 하고 result만 return하는것도 괜찮다.
+	public int updateRateRemaining() {
+		int rate_remaining = getRateRemaining();
+		
+		if(rate_remaining != Constants.INT_NULL) {// 무슨 연유에서건 null인건 reset해줄 필요 없다.
+			setRateRemaining(rate_remaining);
+		}
+		
+		return rate_remaining;// 하지만 결과값은 get에서 받은 그대로를 return해주는게 좋다.
+	}
+	
 	// 초기 1회에 추정하기보다는 직접 구하는게 나을 것 같다. 그리고 main에서 callback 처리할 수 있도록 return해준다.
-	public int getRateRemaining() {
+	private int getRateRemaining() {
 		int rate_remaining = Constants.INT_NULL;
 		
 		try {
@@ -69,27 +89,58 @@ public class Account {
 		return rate_remaining;
 	}
 	
+	public List<MediaFeedData> getTagMediaList(String tag) throws PageNotFoundException, RateLimitExceedException {
+		return getTagMediaList(tag, null);// max 없이 recent를 받는 순간도 있을 것이다.
+	}
+	
 	// limit 다 차거나, page가 없을 때까지 tag에 대한 feed list를 받는다.
-	public List<MediaFeedData> getTagMediaList(String tag) {
+	public List<MediaFeedData> getTagMediaList(String tag, String maxId) throws PageNotFoundException, RateLimitExceedException {
 		List<MediaFeedData> mediaList = null;
 		
 		try {
-			TagMediaFeed mediaFeed = instagram.getRecentMediaTags(tag);
+			TagMediaFeed mediaFeed = instagram.getRecentMediaTags(tag, null, maxId);
 			
 			mediaList = mediaFeed.getData();
 			
-            MediaFeed recentMediaNextPage = instagram.getRecentMediaNextPage(mediaFeed.getPagination());
+			Pagination page = mediaFeed.getPagination();
+			MediaFeed recentMediaNextPage = instagram.getRecentMediaNextPage(page);
             
-            while (recentMediaNextPage.getRemainingLimitStatus() > 0 && recentMediaNextPage.getPagination() != null) {
+            while(true) {
+            	// limit 0이고 page도 마지막이라면, page부터 해주는게 더 효율적이다.
+            	if(!(recentMediaNextPage.getPagination() != null)) {
+            		throw new PageNotFoundException(client_id, page.getNextMaxId());
+            	}
+            	
+            	if(!(recentMediaNextPage.getRemainingLimitStatus() > 0)) {
+            		throw new RateLimitExceedException(client_id, page.getNextMaxId());
+            	}
+            	
                 mediaList.addAll(recentMediaNextPage.getData());
-                recentMediaNextPage = instagram.getRecentMediaNextPage(recentMediaNextPage.getPagination());
+                
+                page = recentMediaNextPage.getPagination();
+                recentMediaNextPage = instagram.getRecentMediaNextPage(page);
             }
 		} catch (InstagramException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			e.printStackTrace();//TODO: 여기도 MultiPrinter와 연결되도록 한다.
 		}
 		
 		return mediaList;
 	}
+	
+	private void setRateRemaining(int rate_remaining) {
+		this.rate_remaining = rate_remaining;
+	}
+	
+	public void setTaskStatus(TaskStatus task_status) {
+		this.task_status = task_status;
+	}
+
+	public TaskStatus getTaskStatus() {
+		return task_status;
+	}
 
 }
+
+//추후 monitoring시 .name()으로 쉽게 출력하기 위해 enum을 간단히 사용.
+enum ProcessingType {NONE, SERIAL, PARALLEL, BOTH};
+enum TaskStatus {UNAVAILABLE, FREE, RESERVED, WORKING};
