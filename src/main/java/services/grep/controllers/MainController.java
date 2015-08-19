@@ -35,7 +35,7 @@ public class MainController implements AccountProvider.AccountCallback {
 	}
 	
 	public MainController(boolean isDaemon, ExecuteMode executeMode) {
-		accountProvider = new AccountProvider();
+		accountProvider = new AccountProvider(this, false);
 		taskManager = new TaskManager();
 		dbAccessor = new DBAccessor();
 		multiPrinter = new MultiPrinter();
@@ -73,26 +73,24 @@ public class MainController implements AccountProvider.AccountCallback {
 
 	@Override
 	public void onAccountInit(List<Account> accounts) {
-		// TODO Auto-generated method stub
-		
+		// 일단 msg 출력해주는게 좋을 것 같다.
+		// task manager에 넘긴다.
 	}
 
 	@Override
 	public void onAccountInserted(Account account) {
-		// TODO Auto-generated method stub
-		
+		// 일단 msg 출력해주는게 좋을 것 같다.
+		// task manager에 넘긴다.
 	}
 
 	@Override
+	// 아마 당장은 msg로서의 역할 말고는 없을 것 같다.(어차피 unavailable, free가 지워진 것이므로)
 	public void onAccountRemoved() {
-		// TODO Auto-generated method stub
-		
+		// msg 출력
 	}
 
 	@Override
 	public void onAccountModified() {
-		// TODO Auto-generated method stub
-		
 	}
 
 }

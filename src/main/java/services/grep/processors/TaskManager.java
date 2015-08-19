@@ -13,8 +13,8 @@ import org.jinstagram.entity.users.feed.MediaFeedData;
  * 
  * 일단 작업량을 구할 수 있어야 한다. 이것은 DBAccessor와 동조할 필요도 있다.
  * 구해진 작업량에 대해서, 구해올 수 있는 account들을 조사하고, 결론적으로 task들을 생성한다.
- * Rescheduling은 아직은 account를 추가할 때만 한다.
- * account를 삭제할 경우는 어차피 자동으로 관여되게 되어있고
+ * Rescheduling은 10분마다, 그리고 추가/수정시에 하면 된다.
+ * 삭제는 어차피 unavailable, free만 하게 할 것이고, 영향을 안 미친다.
  * task들이 사실상 비슷한 시간 내에 끝나게끔 scheduling되었을 것이므로
  * 어떤 task가 조금 먼저 끝난다고 해도 그냥 넘어간다.
  * 즉, 단순한 multi-threading 방식이면 될 것이다.
@@ -41,6 +41,13 @@ public class TaskManager {
 	 * 다만, serial로만 지정된 account가 있다면 그건 물론 task에 추가해줄 것이다.
 	 */
 	public void allocAccounts(List<Account> accounts) {
+		for(Account account : accounts) {
+			allocAccount(account);
+		}
+	}
+	
+	// 복수 개만 할 필요는 없다. 추가/수정 정도에서는 단수도 필요할 수 있다.
+	public void allocAccount(Account account) {
 		
 	}
 	
