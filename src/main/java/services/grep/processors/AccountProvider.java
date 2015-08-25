@@ -3,7 +3,8 @@ package main.java.services.grep.processors;
 import java.util.Iterator;
 import java.util.List;
 
-import main.java.services.grep.exceptions.CannotRemoveSuchAccountException;
+import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
+import main.java.services.grep.exceptions.InstagramLibraryException;
 import main.java.services.grep.utils.Constants;
 
 /**
@@ -74,10 +75,8 @@ public class AccountProvider {
 	 * 그리고 insert같은 작업들이 꼭 file을 통해서 오라는 법도 없고 terminal을 통해서 실시간으로 들어올 수도 있도록 만들 것이다.
 	 */
 	public void insertAccount(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
-		// 일단 account를 만든다.
+		// 일단 account를 만든다. status는 내부에서 처리된다.
 		Account account = new Account(client_id, client_secret, access_token, processing_type);
-		// 그리고 remaining reset한다. 놔둬도 reset은 되겠지만, 만들어지자마자 해주는게 더 나을 것이다.
-		account.updateRateRemaining();
 		// 다 되고나서야 추가를 한다. 그래야 실제 사용 가능할 것이다.
 		accounts.add(account);
 		// callback 날린다.
@@ -85,7 +84,7 @@ public class AccountProvider {
 	}
 	
 	// 사용 간편하게 하려면, stop 등등의 절차 없이, remove에서 알아서 모든걸 해줘야 한다.
-	public void removeAccount(String client_id) throws CannotRemoveSuchAccountException {
+	public void removeAccount(String client_id) throws CannotAccessSuchAccountException {
 		// iterator 써서 해야 되는 것 같다.
 		for(Iterator<Account> iterator = accounts.iterator(); iterator.hasNext();) {
 			Account account = iterator.next();
@@ -93,22 +92,38 @@ public class AccountProvider {
 			if(account.getClientId().equals(client_id)) {
 				TaskStatus taskStatus = account.getTaskStatus();
 				
-				if(taskStatus == TaskStatus.FREE || taskStatus == TaskStatus.RESERVED) {
+				if(taskStatus == TaskStatus.FREE) {
 					iterator.remove();
 					
 					callback.onAccountRemoved();
 					
 					break;
 				} else {// 예약된 것이나 실행중인 것을 지우려 했을 때는, 삭제를 안해주는 것으로 끝낼 것이 아니라 알려야 한다.
-					throw new CannotRemoveSuchAccountException(client_id, taskStatus);
+					throw new CannotAccessSuchAccountException(client_id, taskStatus);
 				}
 			}
 		}
 	}
 	
 	// 위와 같은 맥락에서, sync, scheduling 등의 처리도 manually하게 하지 않고 내부적으로 다 해줘야 한다.
-	public void modifyAccount() {
-		
+	public void modifyAccount(String client_id, ProcessingType processing_type) throws CannotAccessSuchAccountException {
+		for(Iterator<Account> iterator = accounts.iterator(); iterator.hasNext();) {
+			Account account = iterator.next();
+			
+			if(account.getClientId().equals(client_id)) {
+				TaskStatus taskStatus = account.getTaskStatus();
+				
+				if(taskStatus == TaskStatus.FREE) {
+					account.setProcessingType(processing_type);
+					
+					callback.onAccountModified();
+					
+					break;
+				} else {// 예약된 것이나 실행중인 것을 지우려 했을 때는, 삭제를 안해주는 것으로 끝낼 것이 아니라 알려야 한다.
+					throw new CannotAccessSuchAccountException(client_id, taskStatus);
+				}
+			}
+		}
 	}
 	
 	/*
@@ -128,8 +143,13 @@ public class AccountProvider {
 				try {
 					synchronized(accounts) {// accounts 건들고 있을때 다른데서 추가/변경/삭제 못하게 막아둔다.(꼭 필요한 부분만 했다.)
 						for(Account account : accounts) {
-							if(account.getTaskStatus() == TaskStatus.UNAVAILABLE) {
-								account.updateTaskStatus();
+							if(account.getTaskStatus() != TaskStatus.WORKING) {// reserved까지도 해줘야 scheduling에 도움될 것이다.
+								try {
+									account.updateTaskStatus();
+								} catch (InstagramLibraryException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
 							}
 						}
 					}

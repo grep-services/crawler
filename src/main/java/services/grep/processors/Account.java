@@ -35,22 +35,25 @@ public class Account {
 	Instagram instagram;
 	//private Queue query_box;// remaining은 query를 날려봐야 확인 가능하고, 실시간으로 날려서 remaining 갱신할 수 없으니, 여기서 thread로 집계/관리한다.
 	private ProcessingType processing_type;// none, serial, parallel, both
-	private TaskStatus task_status;// unuavailable, free, reserved, working
+	private TaskStatus task_status;// unavailable, free, reserved, working - unavailable은 remaining에 의해 정해질 뿐 manually 정해지지는 않는다. 사용 안하고 싶으면 type을 none으로 둔다.
 	
 	public Account(String client_id, String client_secret, String access_token) {
-		this(client_id, client_secret, access_token, ProcessingType.BOTH, TaskStatus.UNAVAILABLE);// type 안받으면 default both로.
+		this(client_id, client_secret, access_token, ProcessingType.BOTH);// type 안받으면 default both로.
 	}
-	
+
 	public Account(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
-		this(client_id, client_secret, access_token, processing_type, TaskStatus.UNAVAILABLE);// status 안받으면 unavailable 처리.
-	}
-	
-	public Account(String client_id, String client_secret, String access_token, ProcessingType processing_type, TaskStatus task_status) {
 		this.client_id = client_id;
 		this.client_secret = client_secret;
 		this.access_token = access_token;
 		this.processing_type = processing_type;
-		this.task_status = task_status;
+		
+		initInstagram();
+		try {
+			updateTaskStatus();
+		} catch (InstagramLibraryException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	// account 사용 가능하게 하는 초기화.
@@ -64,23 +67,6 @@ public class Account {
 		return client_id;
 	}
 	
-	// 아마 0일 때는 exception 날 수도 있을 것 같다.
-	private int getRateRemaining() throws InstagramLibraryException {
-		int rate_remaining = Constants.INT_NULL;
-		
-		try {
-			MediaFeed mediaFeed = instagram.getUserFeeds();
-			
-			if(mediaFeed != null) {// 혹시 모르니 해준다.
-				rate_remaining =  mediaFeed.getRemainingLimitStatus();// 여기서도 exception 날 수 있으니 값을 바로 return하지 않는다.
-			}
-		} catch (InstagramException e) {
-			throw new InstagramLibraryException(e.getMessage());
-		}
-		
-		return rate_remaining;
-	}
-	
 	public List<MediaFeedData> getTagMediaList(String tag) throws PageNotFoundException, RateLimitExceedException, InstagramLibraryException {
 		return getTagMediaList(tag, null, null);// max 없이 recent를 받는 순간도 있을 것이다.
 	}
@@ -90,16 +76,16 @@ public class Account {
 	 * max부터 받으며, min은 매 page의 min과 비교해 아직 크면 pass, 작으면 break. 
 	 * 그리고, return(throw) 하기 전에는 remaining update를 하고 status까지 마무리되도록 한다.
 	 */
-	public List<MediaFeedData> getTagMediaList(String tag, Long past, Long recent) throws PageNotFoundException, RateLimitExceedException, InstagramLibraryException {
+	public List<MediaFeedData> getTagMediaList(String tag, String lower, String upper) throws PageNotFoundException, RateLimitExceedException, InstagramLibraryException {
 		List<MediaFeedData> mediaList = null;
 		
 		try {
 			// library가 object 구조를 좀 애매하게 해놓아서, 바로 loop 하기보다, 1 cycle은 직접 작성해주는 구조가 되었다.
-			TagMediaFeed mediaFeed = instagram.getRecentMediaTags(tag, null, String.valueOf(min));// 충분히 null일 수 있고, 그것은 곧 recent부터이다.
+			TagMediaFeed mediaFeed = instagram.getRecentMediaTags(tag, null, upper);// 충분히 null일 수 있고, 그것은 곧 recent부터이다.
 			
 			// 첫 list로 받긴 하지만, 처음부터도 filtering을 해야 한다. 만약 filtered되면, 바로 return한다.
-			if(Long.valueOf(mediaFeed.getPagination().getNextMaxId()) < range.getMinimum()) {
-				mediaList = filterMediaList(range, mediaList);
+			if(mediaFeed.getPagination().getNextMaxId().compareTo(lower) < 0) {
+				mediaList = filterMediaList(lower, mediaList);
 				
 				return mediaList;
 			} else {
@@ -121,8 +107,8 @@ public class Account {
             	List<MediaFeedData> mediaData = recentMediaNextPage.getData();
             	
             	// range check. bottom보다 크면 통과. 작으면 bottom 까지만 남기고 자른다.
-            	if(Long.valueOf(recentMediaNextPage.getPagination().getNextMaxTagId()) < range.getMinimum()) {
-            		mediaList.addAll(filterMediaList(range, mediaData));
+            	if(recentMediaNextPage.getPagination().getNextMaxTagId().compareTo(lower) < 0) {
+            		mediaList.addAll(filterMediaList(lower, mediaData));
             		
             		break;
             	} else {
@@ -139,19 +125,34 @@ public class Account {
 		return mediaList;
 	}
 	
-	// max는 걸릴 일도 없긴 하지만 일단 general하게 만들어둔다.
-	public List<MediaFeedData> filterMediaList(Range<Long> range, List<MediaFeedData> mediaList) {
+	// 어차피 string으로 해야 되고, 그냥 min만 비교한다.
+	public List<MediaFeedData> filterMediaList(String lower, List<MediaFeedData> mediaList) {
 		for(Iterator<MediaFeedData> iterator = mediaList.iterator(); iterator.hasNext();) {
 			MediaFeedData mediaData = iterator.next();
 			
-			Long id = Long.valueOf(mediaData.getId());
-			
-			if(id < range.getMinimum() || id > range.getMaximum()) {
+			if(mediaData.getId().compareTo(lower) < 0) {
 				iterator.remove();
 			}
 		}
 		
 		return mediaList;
+	}
+	
+	// 아마 0일 때는 exception 날 수도 있을 것 같다.
+	private int getRateRemaining() throws InstagramLibraryException {
+		int rate_remaining = Constants.INT_NULL;
+		
+		try {
+			MediaFeed mediaFeed = instagram.getUserFeeds();
+			
+			if(mediaFeed != null) {// 혹시 모르니 해준다.
+				rate_remaining =  mediaFeed.getRemainingLimitStatus();// 여기서도 exception 날 수 있으니 값을 바로 return하지 않는다.
+			}
+		} catch (InstagramException e) {
+			throw new InstagramLibraryException(e.getMessage());
+		}
+		
+		return rate_remaining;
 	}
 	
 	public void updateTaskStatus() throws InstagramLibraryException {
@@ -172,6 +173,10 @@ public class Account {
 
 	public TaskStatus getTaskStatus() {
 		return task_status;
+	}
+	
+	public void setProcessingType(ProcessingType processing_type) {
+		this.processing_type = processing_type;
 	}
 
 }

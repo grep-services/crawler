@@ -2,6 +2,7 @@ package main.java.services.grep.processors;
 
 import java.util.List;
 
+import main.java.services.grep.exceptions.InstagramLibraryException;
 import main.java.services.grep.exceptions.PageNotFoundException;
 import main.java.services.grep.exceptions.RateLimitExceedException;
 import main.java.services.grep.utils.Constants;
@@ -87,11 +88,11 @@ class Task extends Thread {
 			} catch (PageNotFoundException e) {
 				break;//TODO: 이렇게 한다고 작업이 끝내 질것인지.
 			} catch (RateLimitExceedException e) {
-				// 다 쓴건 설정 정리하고 버린다.
-				account.setRateRemaining(0);
+				// 다 쓴건 status만 정리해두면 된다.
 				account.setTaskStatus(TaskStatus.UNAVAILABLE);
-				
-				accounts.remove(account);
+			} catch (InstagramLibraryException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
