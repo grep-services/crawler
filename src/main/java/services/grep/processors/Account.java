@@ -29,6 +29,7 @@ import org.jinstagram.exceptions.InstagramException;
  */
 public class Account {
 
+	private final String account_name;// monitoring용
 	private final String client_id;// 현재는 확인용에밖에 쓸 일이 없다.
 	private final String client_secret;
 	private final String access_token;
@@ -36,18 +37,16 @@ public class Account {
 	//private Queue query_box;// remaining은 query를 날려봐야 확인 가능하고, 실시간으로 날려서 remaining 갱신할 수 없으니, 여기서 thread로 집계/관리한다.
 	private ProcessingType processing_type;// none, serial, parallel, both
 	private TaskStatus task_status;// unavailable, free, reserved, working - unavailable은 remaining에 의해 정해질 뿐 manually 정해지지는 않는다. 사용 안하고 싶으면 type을 none으로 둔다.
-	
-	public Account(String client_id, String client_secret, String access_token) {
-		this(client_id, client_secret, access_token, ProcessingType.BOTH);// type 안받으면 default both로.
-	}
 
-	public Account(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+	public Account(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+		this.account_name = account_name;
 		this.client_id = client_id;
 		this.client_secret = client_secret;
 		this.access_token = access_token;
 		this.processing_type = processing_type;
 		
 		initInstagram();
+		
 		try {
 			updateTaskStatus();
 		} catch (InstagramLibraryException e) {
@@ -63,8 +62,8 @@ public class Account {
 		instagram = new Instagram(token);
 	}
 	
-	public String getClientId() {
-		return client_id;
+	public String getAccountName() {
+		return account_name;
 	}
 	
 	public List<MediaFeedData> getTagMediaList(String tag) throws PageNotFoundException, RateLimitExceedException, InstagramLibraryException {
@@ -125,7 +124,10 @@ public class Account {
 		return mediaList;
 	}
 	
-	// 어차피 string으로 해야 되고, 그냥 min만 비교한다.
+	/*
+	 * 어차피 string으로 해야 되고, 그냥 min만 비교한다.
+	 * 그리고, max값이 list의 last one의 id는 아닌 만큼, max < lower이라서 filter하려 했지만 list > lower 인 경우도 있을 수 있을지 모른다.
+	 */
 	public List<MediaFeedData> filterMediaList(String lower, List<MediaFeedData> mediaList) {
 		for(Iterator<MediaFeedData> iterator = mediaList.iterator(); iterator.hasNext();) {
 			MediaFeedData mediaData = iterator.next();
@@ -177,6 +179,22 @@ public class Account {
 	
 	public void setProcessingType(ProcessingType processing_type) {
 		this.processing_type = processing_type;
+	}
+	
+	public ProcessingType getProcessingType() {
+		return processing_type;
+	}
+
+	public String getClientId() {
+		return client_id;
+	}
+
+	public String getClientSecret() {
+		return client_secret;
+	}
+
+	public String getAccessToken() {
+		return access_token;
 	}
 
 }

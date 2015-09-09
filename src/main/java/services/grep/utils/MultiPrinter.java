@@ -1,5 +1,9 @@
 package main.java.services.grep.utils;
 
+import java.util.List;
+
+import main.java.services.grep.processors.Account;
+
 /**
  * 
  * 이 class는 log target이 중요시되는 log4j wrapper class이다.
@@ -17,6 +21,28 @@ public class MultiPrinter {
 
 	public MultiPrinter() {
 		// TODO Auto-generated constructor stub
+	}
+	
+	public static void showAccounts(List<Account> accounts) {
+		for(Account account : accounts) {
+			print(String.format("%s, %s, %s, %s, %s, %s", account.getAccountName(), account.getClientId(), account.getClientSecret(), account.getAccessToken(), account.getProcessingType().toString(), account.getTaskStatus().toString()));
+		}
+	}
+	
+	public void showTasks() {
+		
+	}
+	
+	public void showDatabases() {
+		
+	}
+	
+	public void printException() {
+		
+	}
+	
+	public static void print(String msg) {
+		System.out.println(msg);
 	}
 
 }

@@ -145,7 +145,7 @@ public class Main {
 		
 		//Instagram instagram = new Instagram(CLIENT_ID);
 		
-		String tagName = "ㅈㄷㅇ";
+		String tagName = "제훈제훈";
 		
 		TagMediaFeed mediaFeed = null;
 		

@@ -1,11 +1,15 @@
 package main.java.services.grep.processors;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
 import main.java.services.grep.exceptions.InstagramLibraryException;
-import main.java.services.grep.utils.Constants;
 
 /**
  * 
@@ -20,7 +24,7 @@ import main.java.services.grep.utils.Constants;
  *
  */
 public class AccountProvider {
-
+	
 	// interface는 public, method는 public abstract, field는 public static final이 default이다.
 	public interface AccountCallback {
 		void onAccountInit(List<Account> accounts);
@@ -36,12 +40,12 @@ public class AccountProvider {
 	public AccountProvider(AccountCallback callback) {// 최소한 callback은 있어야 한다.
 		this(callback, false);// 변수 없으면 첫 실행이라고 가정한다.
 	}
-	public AccountProvider(AccountCallback callback, boolean isInitiated) {// 이미 초기화되었는지도 받는다.
+	public AccountProvider(AccountCallback callback, boolean hasInit) {// 이미 초기화되었는지도 받는다.
 		// set callback
 		setAccountCallback(callback);
 		// init accounts
-		if(!isInitiated) {
-			initAccount();
+		if(hasInit) {
+			initAccounts();
 		}
 		// observer 만들고 실행. init하면서 이미 remaining set되었겠지만 겹치게 놔둔다. 빼면 1개단위 추가할 때 바로 적용도 안되고, 차라리 겹치는게 낫다.
 		observer = new AccountObserver();
@@ -58,14 +62,64 @@ public class AccountProvider {
 	 * 일일히 recompile하지 않아도 되어서 더 편할 것이다.
 	 * 그리고, 받는 것으로 끝이 아니라, 받은 후 몇가지 설정도 해야 한다.
 	 */
-	public void initAccount() {
-		// input 받고 parsing. - 받았다고 치고 한다.
-		// remains, task-status까지 설정해야 한다. - insertAccount에서 된다.
-		insertAccount("", "", "", null);
-		// 그리고는 callback 날린다.
-		callback.onAccountInit(accounts);
+	public void initAccounts() {
+		BufferedReader reader = null;
+		
+		final String FILE_INIT = "account-info";
+		final String PREFIX_COMMENTS = "\\*";
+		final String STR_DELIMITER = "\\s*,\\s*";
+		final int ARG_LIMIT = 5;
+		
+		try {
+			reader = new BufferedReader(new FileReader(FILE_INIT));
+			
+			String line = null;
+			while((line = reader.readLine()) != null) {
+				line = line.trim();
+				
+				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
+					continue;
+				}
+				
+				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
+				
+				ProcessingType processingType = ProcessingType.BOTH;
+				
+				if(!array[4].isEmpty()) {
+					if(array[4].equals(ProcessingType.NONE.toString())) {
+						processingType = ProcessingType.NONE;
+					} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
+						processingType = ProcessingType.SERIAL;
+					} else if(array[4].equals(ProcessingType.PARARELL.toString())) {
+						processingType = ProcessingType.PARARELL;
+					}
+				}
+				
+				insertAccount(array[0], array[1], array[2], array[3], processingType, false);
+			}
+			
+			// 그리고는 callback 날린다.
+			callback.onAccountInit(accounts);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				reader.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 	
+	// 그냥 넘어오는 것은 default로 생각하고 callback 부른다.
+	public void insertAccount(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+		insertAccount(account_name, client_id, client_secret, access_token, processing_type, true);
+	}
 	/*
 	 * remaining 구하는 이슈가 제일 중요한데, queue를 만들어 실시간 체크도 쉽지는 않다.
 	 * 현재는 periodically checking 방식 쓰기로 했다.
@@ -74,22 +128,28 @@ public class AccountProvider {
 	 * 
 	 * 그리고 insert같은 작업들이 꼭 file을 통해서 오라는 법도 없고 terminal을 통해서 실시간으로 들어올 수도 있도록 만들 것이다.
 	 */
-	public void insertAccount(String client_id, String client_secret, String access_token, ProcessingType processing_type) {
+	public void insertAccount(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type, boolean shouldCallback) {
 		// 일단 account를 만든다. status는 내부에서 처리된다.
-		Account account = new Account(client_id, client_secret, access_token, processing_type);
+		Account account = new Account(account_name, client_id, client_secret, access_token, processing_type);
 		// 다 되고나서야 추가를 한다. 그래야 실제 사용 가능할 것이다.
-		accounts.add(account);
+		if(accounts == null) {
+			accounts = new ArrayList<Account>();
+		} else {
+			accounts.add(account);					
+		}
 		// callback 날린다.
-		callback.onAccountInserted(account);
+		if(shouldCallback) {
+			callback.onAccountInserted(account);
+		}
 	}
 	
 	// 사용 간편하게 하려면, stop 등등의 절차 없이, remove에서 알아서 모든걸 해줘야 한다.
-	public void removeAccount(String client_id) throws CannotAccessSuchAccountException {
+	public void removeAccount(String account_name) throws CannotAccessSuchAccountException {
 		// iterator 써서 해야 되는 것 같다.
 		for(Iterator<Account> iterator = accounts.iterator(); iterator.hasNext();) {
 			Account account = iterator.next();
 			
-			if(account.getClientId().equals(client_id)) {
+			if(account.getAccountName().equals(account_name)) {
 				TaskStatus taskStatus = account.getTaskStatus();
 				
 				if(taskStatus == TaskStatus.FREE) {
@@ -99,7 +159,7 @@ public class AccountProvider {
 					
 					break;
 				} else {// 예약된 것이나 실행중인 것을 지우려 했을 때는, 삭제를 안해주는 것으로 끝낼 것이 아니라 알려야 한다.
-					throw new CannotAccessSuchAccountException(client_id, taskStatus);
+					throw new CannotAccessSuchAccountException(account_name, taskStatus);
 				}
 			}
 		}
@@ -110,7 +170,7 @@ public class AccountProvider {
 		for(Iterator<Account> iterator = accounts.iterator(); iterator.hasNext();) {
 			Account account = iterator.next();
 			
-			if(account.getClientId().equals(client_id)) {
+			if(account.getAccountName().equals(client_id)) {
 				TaskStatus taskStatus = account.getTaskStatus();
 				
 				if(taskStatus == TaskStatus.FREE) {

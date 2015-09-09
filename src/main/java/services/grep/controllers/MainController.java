@@ -31,11 +31,11 @@ public class MainController implements AccountProvider.AccountCallback {
 	private enum ExecuteMode {fetch, range, update};
 	
 	public MainController() {
-		this(false, ExecuteMode.range);
+		this(false, ExecuteMode.range, false);
 	}
 	
-	public MainController(boolean isDaemon, ExecuteMode executeMode) {
-		accountProvider = new AccountProvider(this, false);
+	public MainController(boolean isDaemon, ExecuteMode executeMode, boolean hasInit) {
+		accountProvider = new AccountProvider(this, hasInit);
 		taskManager = new TaskManager();
 		dbAccessor = new DBAccessor();
 		multiPrinter = new MultiPrinter();
@@ -55,6 +55,8 @@ public class MainController implements AccountProvider.AccountCallback {
 		if(args.length > 0) {
 			boolean isDaemon = false;
 			ExecuteMode executeMode = ExecuteMode.range;
+			// 초기화값이 있는지의 여부.
+			boolean hasInit = false;
 			
 			// daemon은 안들어온다고 가정한다.
 			for(String arg : args) {
@@ -63,9 +65,13 @@ public class MainController implements AccountProvider.AccountCallback {
 				} else if(arg.equals("-u")) {
 					executeMode = ExecuteMode.update;
 				}
+				
+				if(arg.equals("-i")) {
+					hasInit = true;
+				}
 			}
 			
-			new MainController(isDaemon, executeMode);
+			new MainController(isDaemon, executeMode, hasInit);
 		} else {
 			new MainController();
 		}
@@ -74,6 +80,8 @@ public class MainController implements AccountProvider.AccountCallback {
 	@Override
 	public void onAccountInit(List<Account> accounts) {
 		// 일단 msg 출력해주는게 좋을 것 같다.
+		//multiPrinter.showAccounts(accounts);
+		MultiPrinter.showAccounts(accounts);
 		// task manager에 넘긴다.
 	}
 

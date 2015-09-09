@@ -1,11 +1,17 @@
 package main.java.services.grep.processors;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import main.java.services.grep.exceptions.InstagramLibraryException;
 import main.java.services.grep.exceptions.PageNotFoundException;
 import main.java.services.grep.exceptions.RateLimitExceedException;
 import main.java.services.grep.utils.Constants;
+import main.java.services.grep.utils.MultiPrinter;
 
 import org.apache.commons.lang3.Range;
 import org.jinstagram.entity.users.feed.MediaFeedData;
@@ -26,12 +32,89 @@ import org.jinstagram.entity.users.feed.MediaFeedData;
  */
 public class TaskManager {
 	
+	// interface는 public, method는 public abstract, field는 public static final이 default이다.
+	public interface TaskCallback {
+		void onTaskFinished();
+	}
+	
+	private TaskCallback callback;
 	// 초기엔 1개라도, 나중에는 분산될 수 있다. 특히 upper가 -1인 range는 recent부터받으라는 것으로 한다.
 	private List<Range<Long>> schedules;
 	private List<Task> tasks;
 
 	public TaskManager() {
 		// TODO Auto-generated constructor stub
+	}
+	
+	// task는 init 안하면 거의 직접 입력하기 쉽지는 않을 것이다.
+	public TaskManager(TaskCallback callback, boolean hasInit) {
+		setTaskCallback(callback);
+		
+		if(hasInit) {
+			initTasks();
+		}
+	}
+
+	public void setTaskCallback(TaskCallback callback) {
+		this.callback = callback;
+	}
+	
+	public void initTasks() {
+		BufferedReader reader = null;
+		
+		final String FILE_INIT = "work-list";
+		final String PREFIX_COMMENTS = "\\*";
+		final String REGEX_DECLARE = "^\\p{Alnum}*$";// 문자나 숫자로 시작하기만 하면 된다.
+		final String REGEX_SCHEDULE = "^-?";// 다시 고친다. 좀 단순하게 comma로만 구분하게 할 생각이다.
+		
+		try {
+			reader = new BufferedReader(new FileReader(FILE_INIT));
+			
+			String line = null;
+			while((line = reader.readLine()) != null) {
+				line = line.trim();
+				
+				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
+					continue;
+				}
+				
+				if(line.matches(REGEX_DECLARE)) {
+					
+				}
+				
+				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
+				
+				ProcessingType processingType = ProcessingType.BOTH;
+				
+				if(!array[4].isEmpty()) {
+					if(array[4].equals(ProcessingType.NONE.toString())) {
+						processingType = ProcessingType.NONE;
+					} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
+						processingType = ProcessingType.SERIAL;
+					} else if(array[4].equals(ProcessingType.PARARELL.toString())) {
+						processingType = ProcessingType.PARARELL;
+					}
+				}
+				
+				insertAccount(array[0], array[1], array[2], array[3], processingType, false);
+			}
+			
+			// 그리고는 callback 날린다.
+			callback.onAccountInit(accounts);
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				reader.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
 	}
 
 	/*
@@ -81,24 +164,34 @@ class Task extends Thread {
 		while(true) {
 			// 웬만하면 limit 높은것으로 1개 뽑고
 			Account account = popAccount();
-			// exception 고려하면서 query 실행
-			try {
-				List<MediaFeedData> mediaList = account.getTagMediaList(Constants.TARGET_TAG);
-				// 제대로 받아졌으면, 아무래도 callback 날리든가 해서 db에 기록해야 할듯.
-			} catch (PageNotFoundException e) {
-				break;//TODO: 이렇게 한다고 작업이 끝내 질것인지.
-			} catch (RateLimitExceedException e) {
-				// 다 쓴건 status만 정리해두면 된다.
-				account.setTaskStatus(TaskStatus.UNAVAILABLE);
-			} catch (InstagramLibraryException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			
+			if(account != null) {
+				// exception 고려하면서 query 실행
+				try {
+					List<MediaFeedData> mediaList = account.getTagMediaList(Constants.TARGET_TAG);
+					// 제대로 받아졌으면, 아무래도 callback 날리든가 해서 db에 기록해야 할듯.
+				} catch (PageNotFoundException e) {
+					break;//TODO: 이렇게 한다고 작업이 끝내 질것인지.
+				} catch (RateLimitExceedException e) {
+					// 다 쓴건 status만 정리해두면 된다.
+					account.setTaskStatus(TaskStatus.UNAVAILABLE);
+				} catch (InstagramLibraryException e) {
+					MultiPrinter.print(e.getMessage());
+				}
 			}
 		}
 	}
 	
 	private Account popAccount() {
-		return accounts.get(0);
+		Account result = null;
+		
+		for(Account account : accounts) {
+			if(account.getTaskStatus() != TaskStatus.UNAVAILABLE) {
+				result = account;
+			}
+		}
+		
+		return result;
 	}
 	
 }
