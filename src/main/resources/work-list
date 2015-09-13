@@ -5,7 +5,8 @@
 * work-list는 사실상 실행중 수정은 불가하다는 점이 있지만, db의 궤적을 기록해둔다는 점에서 process 종료 후에도 살아있어야 한다는 점에서 분리가 필요했다.
 * 그럼 왜 refresh, 삭제, 수정 등의 mode는 분리하지 않는가 하면, 이것은 어차피 process 실행과 함께 하는 속성이기 때문이다.
 * 다만, 수정 같은 경우 삭제, 추가 등과 겹칠 수 있고, 그럼 오래 걸릴 수 있는 만큼... 서로 안 겹칠 수 있게 잘 scheduling하던가, 수정하는 동안은 추가/삭제 일정 잡지 않도록 하던가 한다.
+* 그리고, 정확히 말하면, Mode, Table, List 모두 내부 기록이고, List는 외부에도 기록하며, Mode, Table은 전체 완료 전에는 변경불가 시키는 방식이 맞을 것이다.
+* 현재는, 그러한 lock 보다는 일단 구조 돌아가는 것에 초점을 맞춘다.
+* 사용되는 단어들은, INCLUDE/EXCLUDE, FIRST/LAST, MIN/MAX, 0/자연수이고, 특히 FIRST/LAST는 외부DB, MIN/MAX는 내부DB용이다.
 
-TODO, MIN, MAX
-DONE, MIN, CUR
-==> 사실 이건 TODO, CUR, MAX와 같다. 즉 update. 다만 cur이 없는 만큼, 결국 전부 다 받아오게 작동되어야 한다.
+INCLUDE, FIRST, LAST
