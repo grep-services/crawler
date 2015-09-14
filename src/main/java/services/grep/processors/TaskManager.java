@@ -34,6 +34,7 @@ public class TaskManager {
 	
 	// interface는 public, method는 public abstract, field는 public static final이 default이다.
 	public interface TaskCallback {
+		void onTaskInit();
 		void onTaskFinished();
 	}
 	
@@ -42,10 +43,10 @@ public class TaskManager {
 	private List<Range<Long>> schedules;
 	private List<Task> tasks;
 
-	public TaskManager() {
-		// TODO Auto-generated constructor stub
+	public TaskManager(TaskCallback callback) {
+		this(callback, false);
 	}
-	
+
 	// task는 init 안하면 거의 직접 입력하기 쉽지는 않을 것이다.
 	public TaskManager(TaskCallback callback, boolean hasInit) {
 		setTaskCallback(callback);
@@ -64,8 +65,9 @@ public class TaskManager {
 		
 		final String FILE_INIT = "work-list";
 		final String PREFIX_COMMENTS = "\\*";
-		final String REGEX_DECLARE = "^\\p{Alnum}*$";// 문자나 숫자로 시작하기만 하면 된다.
-		final String REGEX_SCHEDULE = "^-?";// 다시 고친다. 좀 단순하게 comma로만 구분하게 할 생각이다.
+		final String REGEX_DECLARE = "^(INCLUDE|EXCLUDE)\\s*,\\s*(FIRST|LAST|MIN|MAX|\\d+)\\s*,\\s*(FIRST|LAST|MIN|MAX|\\d+)\\s*$";
+		final String STR_DELIMITER = "\\s*,\\s*";
+		final int ARG_LIMIT = 3;
 		
 		try {
 			reader = new BufferedReader(new FileReader(FILE_INIT));
@@ -78,40 +80,23 @@ public class TaskManager {
 					continue;
 				}
 				
-				if(line.matches(REGEX_DECLARE)) {
-					
+				if(!line.matches(REGEX_DECLARE)) {
+					//TODO: throws exception
 				}
 				
 				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
-				
-				ProcessingType processingType = ProcessingType.BOTH;
-				
-				if(!array[4].isEmpty()) {
-					if(array[4].equals(ProcessingType.NONE.toString())) {
-						processingType = ProcessingType.NONE;
-					} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
-						processingType = ProcessingType.SERIAL;
-					} else if(array[4].equals(ProcessingType.PARARELL.toString())) {
-						processingType = ProcessingType.PARARELL;
-					}
-				}
-				
-				insertAccount(array[0], array[1], array[2], array[3], processingType, false);
 			}
 			
 			// 그리고는 callback 날린다.
-			callback.onAccountInit(accounts);
+			callback.onTaskInit();
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
 			try {
 				reader.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -150,25 +135,29 @@ public class TaskManager {
 
 class Task extends Thread {
 
+	private String tag;
 	// 초기에 시작한 task라면 모르겠지만, 나중에 추가될 수록 분산된 schedule들을 가지게 될 것이므로 list가 필요하다.
 	private List<Range<Long>> schedules;
-	// 이 task를 수행하기 위해 할당된 serial/both accounts. 물론 다 사용하고 나면 unavailable로 해두고 삭제한다. 그럼 timer에 의해 나중에는 사용가능하게 될 것이다.
+	// 이 task를 수행하기 위해 할당된 accounts. 물론 다 사용하고 나면 unavailable로 해두고 삭제한다. 그럼 timer에 의해 나중에는 사용가능하게 될 것이다.
 	private List<Account> accounts;
 	
-	public Task() {
+	public Task(String tag, List<Range<Long>> schedules, List<Account> accounts) {
+		this.tag = tag;
+		this.schedules = schedules;
+		this.accounts = accounts;
 	}
-	
+
 	@Override
 	public void run() {
 		// list iteration 안하고 이렇게 하는 이유는, 삭제까지 하는 구조상 이게 더 적합하기 때문이다.
 		while(true) {
 			// 웬만하면 limit 높은것으로 1개 뽑고
 			Account account = popAccount();
-			
+			//TODO: account sync 해야될듯.
 			if(account != null) {
 				// exception 고려하면서 query 실행
 				try {
-					List<MediaFeedData> mediaList = account.getTagMediaList(Constants.TARGET_TAG);
+					List<MediaFeedData> mediaList = account.getTagMediaList(tag);
 					// 제대로 받아졌으면, 아무래도 callback 날리든가 해서 db에 기록해야 할듯.
 				} catch (PageNotFoundException e) {
 					break;//TODO: 이렇게 한다고 작업이 끝내 질것인지.

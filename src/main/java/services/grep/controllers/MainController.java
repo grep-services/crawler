@@ -4,8 +4,11 @@ import java.util.List;
 
 import main.java.services.grep.processors.Account;
 import main.java.services.grep.processors.AccountProvider;
+import main.java.services.grep.processors.AccountProvider.AccountCallback;
 import main.java.services.grep.processors.DBAccessor;
 import main.java.services.grep.processors.TaskManager;
+import main.java.services.grep.processors.TaskManager.TaskCallback;
+import main.java.services.grep.utils.Constants;
 import main.java.services.grep.utils.MultiPrinter;
 
 /**
@@ -22,7 +25,7 @@ import main.java.services.grep.utils.MultiPrinter;
  * @since 150706
  * 
  */
-public class MainController implements AccountProvider.AccountCallback {
+public class MainController implements AccountCallback, TaskCallback {
 
 	private AccountProvider accountProvider;
 	private TaskManager taskManager;
@@ -30,14 +33,16 @@ public class MainController implements AccountProvider.AccountCallback {
 	private MultiPrinter multiPrinter;
 	// 최근값, 범위, 수정사항. 범위도 물론 최근값부터 하게 할 수 있지만, 최근값 모드를 따로 두는것도 사용성에서는 의미가 있다.
 	private enum ExecuteMode {fetch, range, update};
+	private String table = Constants.TARGET_TABLE;
+	private String[] tags = Constants.TARGET_TAGS;
 	
 	public MainController() {
-		this(false, ExecuteMode.range, false);
+		this(false, ExecuteMode.range, false, false);
 	}
 	
-	public MainController(boolean isDaemon, ExecuteMode executeMode, boolean hasInit) {
-		accountProvider = new AccountProvider(this, hasInit);
-		taskManager = new TaskManager();
+	public MainController(boolean isDaemon, ExecuteMode executeMode, boolean hasAccountInit, boolean hasTaskInit) {
+		accountProvider = new AccountProvider(this, hasAccountInit);
+		taskManager = new TaskManager(this, hasTaskInit);
 		dbAccessor = new DBAccessor();
 		multiPrinter = new MultiPrinter();
 	}
@@ -57,7 +62,8 @@ public class MainController implements AccountProvider.AccountCallback {
 			boolean isDaemon = false;
 			ExecuteMode executeMode = ExecuteMode.range;
 			// 초기화값이 있는지의 여부.
-			boolean hasInit = false;
+			boolean hasAccountInit = false;
+			boolean hasTaskInit = false;
 			
 			// daemon은 안들어온다고 가정한다.
 			for(String arg : args) {
@@ -67,12 +73,16 @@ public class MainController implements AccountProvider.AccountCallback {
 					executeMode = ExecuteMode.update;
 				}
 				
-				if(arg.equals("-i")) {
-					hasInit = true;
+				if(arg.equals("-a")) {
+					hasAccountInit = true;
+				}
+				
+				if(arg.equals("-t")) {
+					hasTaskInit = true;
 				}
 			}
 			
-			new MainController(isDaemon, executeMode, hasInit);
+			new MainController(isDaemon, executeMode, hasAccountInit, hasTaskInit);
 		} else {
 			new MainController();
 		}
@@ -100,6 +110,18 @@ public class MainController implements AccountProvider.AccountCallback {
 
 	@Override
 	public void onAccountModified() {
+	}
+
+	@Override
+	public void onTaskInit() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onTaskFinished() {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

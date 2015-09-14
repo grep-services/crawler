@@ -67,6 +67,11 @@ public class AccountProvider {
 		
 		final String FILE_INIT = "account-info";
 		final String PREFIX_COMMENTS = "\\*";
+		final String REGEX_DECLARE = "^\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(\\w|.)+\\s*,\\s*("
+				+ ProcessingType.NONE + "|"
+				+ ProcessingType.SERIAL + "|"
+				+ ProcessingType.PARARELL + "|"
+				+ ProcessingType.BOTH + ")$";
 		final String STR_DELIMITER = "\\s*,\\s*";
 		final int ARG_LIMIT = 5;
 		
@@ -79,6 +84,10 @@ public class AccountProvider {
 				
 				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
 					continue;
+				}
+				
+				if(!line.matches(REGEX_DECLARE)) {
+					//TODO: throws exception
 				}
 				
 				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
@@ -101,16 +110,13 @@ public class AccountProvider {
 			// 그리고는 callback 날린다.
 			callback.onAccountInit(accounts);
 		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} finally {
 			try {
 				reader.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
