@@ -16,3 +16,5 @@ DEL, 먹스타그램, RESTAURANT, 7, DONE
 DEL, 먹방, RESTAURANT, 7, STOPPED/RUNNING
 MOD, 먹스타그램, RESTAURANT, 30, PASSED
 MOD, 먹방, RESTAURANT, 30, PASSED
+
+* #를 붙여서 하도록. #가 붙으면 TAG QUREY를 날리고, 없으면 그냥 날린다. 그래야 INSTA, NAVER 등 여러 MEDIA에 접근 가능.

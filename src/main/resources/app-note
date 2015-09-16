@@ -2,3 +2,14 @@
 * 사용자가 손댈 필요는 없고, 현재 pointing할 job, 그리고 항시 남겨둘 종료 code 정도가 있을 것이다.
 * 이 정보 자체는 맞고 틀림 보다는, format에 안 맞으면 안되고, format에 맞다면 그 진위를 분별하기는 힘든 만큼 넘어가야 한다.
 * 다만 그렇게 넘어갔을 경우 꼬일 수도 있는 만큼, 이 정보 자체에 대해서는 개입을 금지하고, 진위여부를 분별하기 위한 process도 생각해봐야 한다.
+
+JOB
+ASDFASDFASDF
+
+TASKS
+
+흠... file들이 많아지다보니 복잡해진다.
+
+전체 job 관리용 수동 file, tasks 관리용 자동/수동 file, accounts 등록/monitoring용 수동 file 정도로 끝낼 수 있도록 한다.
+비정상종료는 물론 check할 수 있지만, db와 sync 안맞는 문제는 비정상종료 뿐만 아니라 항상 job 실행시 선행되어야 할 것 같다.
+따라서 비정상종료는 exception으로서 alert해주는 정도로 넘어가고, db sync 문제는 항상 job 실행시 check하도록 한다.
