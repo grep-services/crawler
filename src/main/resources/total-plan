@@ -10,11 +10,13 @@
 * 어쨌든, 위와 같이 period 중심제이므로, 아직 period 덜 찼을 때는 그 plan은 그냥 넘어가면 되는 것이다. 즉, del, mod 같은 것들은 실제 plan에서 pass될 가능성이 꽤 많다.
 * 마지막 인수는 실행 주기인데, 이게 있어야 work-list와 연결될 수 있는 1개의 job을 식별할 수 있다. STOP, PASS, RUN, COMPLETE가 있으며, 실제 표현은 STOPPED, PASSED, RUNNING, DONE이다.
 
-NEW, 먹스타그램, RESTAURANT, 1, STOPPED 
-NEW, 먹방, RESTAURANT, 1, DONE
-DEL, 먹스타그램, RESTAURANT, 7, DONE
-DEL, 먹방, RESTAURANT, 7, STOPPED/RUNNING
-MOD, 먹스타그램, RESTAURANT, 30, PASSED
-MOD, 먹방, RESTAURANT, 30, PASSED
+NEW, INSTAGRAM, #먹스타그램, RESTAURANT, 1
+NEW, INSTAGRAM, #먹방, RESTAURANT, 1
+* NEW, NAVER, 맛집, RESTAURANT, 1
+* DEL, INSTAGRAM, #먹스타그램, RESTAURANT
+* DEL, INSTAGRAM, #먹방, RESTAURANT, 7
+* MOD, INSTAGRAM, #먹스타그램, RESTAURANT, 30
+* MOD, INSTAGRAM, #먹방, RESTAURANT, 30
 
 * #를 붙여서 하도록. #가 붙으면 TAG QUREY를 날리고, 없으면 그냥 날린다. 그래야 INSTA, NAVER 등 여러 MEDIA에 접근 가능.
+* 같은 SERVICE TABLE을 참조하는 JOB들은 SERIAL, 다른 것들은 PARARELL로 하면 된다.
