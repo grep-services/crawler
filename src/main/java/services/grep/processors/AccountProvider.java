@@ -10,6 +10,7 @@ import java.util.List;
 
 import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
 import main.java.services.grep.exceptions.InstagramLibraryException;
+import main.java.services.grep.utils.Constants;
 
 /**
  * 
@@ -42,7 +43,7 @@ public class AccountProvider {
 	}
 	public AccountProvider(AccountCallback callback, boolean hasInit) {// 이미 초기화되었는지도 받는다.
 		// set callback
-		setAccountCallback(callback);
+		this.callback = callback;
 		// init accounts
 		if(hasInit) {
 			initAccounts();
@@ -50,10 +51,6 @@ public class AccountProvider {
 		// observer 만들고 실행. init하면서 이미 remaining set되었겠지만 겹치게 놔둔다. 빼면 1개단위 추가할 때 바로 적용도 안되고, 차라리 겹치는게 낫다.
 		observer = new AccountObserver();
 		observer.start();
-	}
-	
-	public void setAccountCallback(AccountCallback callback) {
-		this.callback = callback;
 	}
 	
 	/*
@@ -67,11 +64,15 @@ public class AccountProvider {
 		
 		final String FILE_INIT = "account-info";
 		final String PREFIX_COMMENTS = "\\*";
-		final String REGEX_DECLARE = "^\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(\\w|.)+\\s*,\\s*("
+		final String REGEX_DECLARE = "^\\s*("
+				+ Constants.TARGET_SERVICES[0] + "|" // instagram
+				+ Constants.TARGET_SERVICES[1] + "|" // naver
+				+ Constants.TARGET_SERVICES[2] + "|" // facebook
+				+ ")\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(\\w|.)+\\s*,\\s*("
 				+ ProcessingType.NONE + "|"
 				+ ProcessingType.SERIAL + "|"
 				+ ProcessingType.PARARELL + "|"
-				+ ProcessingType.BOTH + ")$";
+				+ ProcessingType.BOTH + ")\\s*$";
 		final String STR_DELIMITER = "\\s*,\\s*";
 		final int ARG_LIMIT = 5;
 		

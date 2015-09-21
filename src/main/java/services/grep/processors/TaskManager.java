@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -49,15 +50,11 @@ public class TaskManager {
 
 	// task는 init 안하면 거의 직접 입력하기 쉽지는 않을 것이다.
 	public TaskManager(TaskCallback callback, boolean hasInit) {
-		setTaskCallback(callback);
+		this.callback = callback;
 		
 		if(hasInit) {
 			initTasks();
 		}
-	}
-
-	public void setTaskCallback(TaskCallback callback) {
-		this.callback = callback;
 	}
 	
 	public void initTasks() {
@@ -110,6 +107,20 @@ public class TaskManager {
 	 * 다만, serial로만 지정된 account가 있다면 그건 물론 task에 추가해줄 것이다.
 	 */
 	public void allocAccounts(List<Account> accounts) {
+		// weight 순으로 정렬부터 한다. 그래야 task 할당을 먼저 해서 serial, both 등이 적절히 분배될 수 있다.
+		accounts.sort(new Comparator<Account>() {
+			@Override
+			public int compare(Account o1, Account o2) {
+				if(o1.getProcessingType().getWeight() > o2.getProcessingType().getWeight()) {
+					return 1;
+				} else if(o1.getProcessingType().getWeight() < o2.getProcessingType().getWeight()) {
+					return -1;
+				} else {
+					return 0;
+				}
+			}			
+		});
+		
 		for(Account account : accounts) {
 			allocAccount(account);
 		}

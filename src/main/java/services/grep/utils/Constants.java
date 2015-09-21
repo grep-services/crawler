@@ -15,6 +15,8 @@ public class Constants {
 	private Constants() {
 	}
 	
+	public static final String[] TARGET_SERVICES = {"INSTAGRAM", "NAVER", "FACEBOOK"};// 이것들도 역시 TABLE NAME이다.
+	
 	/*
 	 * 이 정보는 사실 한번 실행되고 나서 바뀌면 안된다.
 	 * work-list 등에 schedule이 기록되면서 진행되기 때문이다.

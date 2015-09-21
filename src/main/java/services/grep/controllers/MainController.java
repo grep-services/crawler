@@ -1,11 +1,16 @@
 package main.java.services.grep.controllers;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.List;
 
 import main.java.services.grep.processors.Account;
 import main.java.services.grep.processors.AccountProvider;
 import main.java.services.grep.processors.AccountProvider.AccountCallback;
 import main.java.services.grep.processors.DBAccessor;
+import main.java.services.grep.processors.ProcessingType;
 import main.java.services.grep.processors.TaskManager;
 import main.java.services.grep.processors.TaskManager.TaskCallback;
 import main.java.services.grep.utils.Constants;
@@ -37,14 +42,61 @@ public class MainController implements AccountCallback, TaskCallback {
 	private String[] tags = Constants.TARGET_TAGS;
 	
 	public MainController() {
-		this(false, ExecuteMode.range, false, false);
+		this(false, false, false, false);
 	}
 	
-	public MainController(boolean isDaemon, ExecuteMode executeMode, boolean hasAccountInit, boolean hasTaskInit) {
+	public MainController(boolean isDaemon, boolean hasInit, boolean hasAccountInit, boolean hasTaskInit) {
+		if(hasInit) {
+			init();
+		}
+		
 		accountProvider = new AccountProvider(this, hasAccountInit);
 		taskManager = new TaskManager(this, hasTaskInit);
 		dbAccessor = new DBAccessor();
 		multiPrinter = new MultiPrinter();
+	}
+	
+	public void init() {
+		BufferedReader reader = null;
+		
+		final String FILE_INIT = "total-plan";
+		final String PREFIX_COMMENTS = "\\*";
+		final String REGEX_DECLARE = "^(NEW|MOD|DEL)\\s*,\\s*("
+				+ Constants.TARGET_SERVICES[0] + "|" // instagram
+				+ Constants.TARGET_SERVICES[1] + "|" // naver
+				+ Constants.TARGET_SERVICES[2] + "|" // facebook
+				+ ")\\s*,\\s*#?\\w+\\s*,\\s*d+\\s*,\\s*(RESERVED|RUNNING|STOPPED|PASSED|DONE)\\s*$";
+		final String STR_DELIMITER = "\\s*,\\s*";
+		final int ARG_LIMIT = 5;
+		
+		try {
+			reader = new BufferedReader(new FileReader(FILE_INIT));
+			
+			String line = null;
+			while((line = reader.readLine()) != null) {
+				line = line.trim();
+				
+				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
+					continue;
+				}
+				
+				if(!line.matches(REGEX_DECLARE)) {
+					//TODO: throws exception
+				}
+				
+				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				reader.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	/*
@@ -60,17 +112,15 @@ public class MainController implements AccountCallback, TaskCallback {
 		
 		if(args.length > 0) {
 			boolean isDaemon = false;
-			ExecuteMode executeMode = ExecuteMode.range;
 			// 초기화값이 있는지의 여부.
+			boolean hasInit = false;
 			boolean hasAccountInit = false;
 			boolean hasTaskInit = false;
 			
 			// daemon은 안들어온다고 가정한다.
 			for(String arg : args) {
-				if(arg.equals("-f")) {
-					executeMode = ExecuteMode.fetch;
-				} else if(arg.equals("-u")) {
-					executeMode = ExecuteMode.update;
+				if(arg.equals("-i")) {
+					hasInit = true;
 				}
 				
 				if(arg.equals("-a")) {
@@ -82,7 +132,7 @@ public class MainController implements AccountCallback, TaskCallback {
 				}
 			}
 			
-			new MainController(isDaemon, executeMode, hasAccountInit, hasTaskInit);
+			new MainController(isDaemon, hasInit, hasAccountInit, hasTaskInit);
 		} else {
 			new MainController();
 		}

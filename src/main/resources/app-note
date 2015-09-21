@@ -1,3 +1,1 @@
-* 사용자가 개입하는 것이 아니라, 어떤 JOB이 어떤 상태인지 기록해두는 곳.
-* JOB은 WORK-LIST에서 가져와서 다루면서 여기에 기록될 것이며, 따라서 PASSED, RUNNING, DONE, STOPPED, CRASHED 정도가 있을 것이다.
-* STOPPED, CRASHED 정도에 대해서는 DB SYNC CHECK 선행되어야 할 수도 있다.
+* 여기는 total-plan 다 고쳐지면, 전체 history log 용도로 쓰도록 한다.
