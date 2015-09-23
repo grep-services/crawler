@@ -27,6 +27,9 @@ import org.jinstagram.entity.users.feed.MediaFeedData;
  * 어떤 task가 조금 먼저 끝난다고 해도 그냥 넘어간다.
  * 즉, 단순한 multi-threading 방식이면 될 것이다.
  * 
+ * 지금은 직접 multi-threading 구조 만들지만
+ * 책 사고 공부하고 나서는 좀더 existing structure 이용해서 안전성 높인다.
+ * 
  * @author marine
  * @since 150706
  *
@@ -36,6 +39,8 @@ public class TaskManager {
 	// interface는 public, method는 public abstract, field는 public static final이 default이다.
 	public interface TaskCallback {
 		void onTaskInit();
+		void onTaskCreated();
+		void onTaskModified();
 		void onTaskFinished();
 	}
 	
@@ -118,7 +123,7 @@ public class TaskManager {
 				} else {
 					return 0;
 				}
-			}			
+			}
 		});
 		
 		for(Account account : accounts) {
@@ -128,16 +133,26 @@ public class TaskManager {
 	
 	// 복수 개만 할 필요는 없다. 추가/수정 정도에서는 단수도 필요할 수 있다.
 	public void allocAccount(Account account) {
-		
+		if(account.getProcessingType() == ProcessingType.PARALLEL) {
+			createTask(account);
+		} else if(account.getProcessingType() == ProcessingType.SERIAL) {
+			//TODO: 하지만 serial만 1개 있다거나, serial들만 있다거나 하는 때의 처리도 필요할 듯.
+			modifyTask(account);
+		} else if(account.getProcessingType() == ProcessingType.BOTH) {
+			//TODO: 최소 1개씩은 serial 갖고 있는지, 그리고 parallel limit 체크 후 method call.
+		}
 	}
 	
 	/*
-	 * 최소 1개의 account가 필요하다.
-	 * 하지만 serial도 최소 1개까지는 parallel보다 먼저 할당해주기로 했으며
-	 * 특히 serial로만 설정된 account가 있는 경우에는 이렇게 복수의 account들로 task를 생성하게 될 수도 있다.
+	 * 복수개의 account를 한꺼번에 task creation, modification 에 적용시키는 것이 좋을 수 있으나 복잡하다.
+	 * 어차피 복수개의 account 다룰 일은 init 정도밖에 없고, 나중에 필요하다면 복수개 사용하는 방식으로 upgrade해본다.
 	 */
-	public void createTask(List<Account> accounts) {
-		
+	public void createTask(Account account) {
+		callback.onTaskCreated();
+	}
+	
+	public void modifyTask(Account account) {
+		callback.onTaskModified();
 	}
 	
 	//TODO: SCHEDULE CALCULATING 하는 METHOD 필요할듯.
@@ -182,12 +197,17 @@ class Task extends Thread {
 		}
 	}
 	
+	//TODO: unavailable 가리는건 좋은데, max limit 뽑을 수 있도록 노력하기.
 	private Account popAccount() {
 		Account result = null;
 		
 		for(Account account : accounts) {
 			if(account.getTaskStatus() != TaskStatus.UNAVAILABLE) {
-				result = account;
+				if(result == null) {
+					result = account;
+				} else {
+					//TODO: limit 구해서 result update.
+				}
 			}
 		}
 		

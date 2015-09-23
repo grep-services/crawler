@@ -174,4 +174,16 @@ public class MainController implements AccountCallback, TaskCallback {
 		
 	}
 
+	@Override
+	public void onTaskCreated() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void onTaskModified() {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

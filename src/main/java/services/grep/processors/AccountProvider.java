@@ -71,7 +71,7 @@ public class AccountProvider {
 				+ ")\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(\\w|.)+\\s*,\\s*("
 				+ ProcessingType.NONE + "|"
 				+ ProcessingType.SERIAL + "|"
-				+ ProcessingType.PARARELL + "|"
+				+ ProcessingType.PARALLEL + "|"
 				+ ProcessingType.BOTH + ")\\s*$";
 		final String STR_DELIMITER = "\\s*,\\s*";
 		final int ARG_LIMIT = 5;
@@ -100,8 +100,8 @@ public class AccountProvider {
 						processingType = ProcessingType.NONE;
 					} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
 						processingType = ProcessingType.SERIAL;
-					} else if(array[4].equals(ProcessingType.PARARELL.toString())) {
-						processingType = ProcessingType.PARARELL;
+					} else if(array[4].equals(ProcessingType.PARALLEL.toString())) {
+						processingType = ProcessingType.PARALLEL;
 					}
 				}
 				
