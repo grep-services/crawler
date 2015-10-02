@@ -1,24 +1,19 @@
 * work-list는 내부용이라면, total-plan은 외부용이다.
 * 추가/삭제/수정 등의 mode, crawl할 tag, crawl된 info가 들어갈 db table, 반복될 주기, 같은날 다른 일정이 있을 시 취소할 지 말지의 여부 등...
-* 물론 여기 뿐만 아니라 work-list도 마찬가지겠지만, 모든 실행이 우리 손에 의한다고 볼 수 없다. crash 등 있을 수 있는 만큼, db와 work-list의 sync를 flag로 항상 기록해서 crashed 인지하게 한다.
-* 만약 flag가 n이라면, db에 기록한 것을 work-list에 기록 안 한 상태에서 종료되었다는 것이므로, db의 마지막 부분부터 work-list를 다시 synchronize한다.
-* 추후 insta뿐 아니라 다른 media를 한다 치더라도 여기에 형식만 확장한 뒤 추가해주면 될 것이므로 동시 수행은 아직 필요하지 않아 보인다.
 * 반복 실행은 id link로 하자니 좀 지저분하고, 그냥 내부 default로 해두고, 필요하면 변경한다.(멈추고, loop off, plan 추가/삭제 등...)
-* NEW|DEL|MOD, 먹스타그램, RESTAURANT, 3 => 뒤의 3은 같은 query가 최소 3일 간격을 둬야 된다는 말이다. 따라서 duration이 그 3이라는 period를 넘었을 때는 특별히 신경쓸 필요 없다.
-* 같은 table을 목표로 할 때의 new에서는, 항상 중복 쌓임을 조심해야 한다. del, mod는 특별히 신경쓸 필요 없다.
+* 뒤의 숫자 k는 같은 query가 최소 k일 간격을 둬야 된다는 말이다. 따라서 duration이 그 k라는 period를 넘었을 때는 특별히 신경쓸 필요 없다.
+* multi-tag 등의 job들에서는 항상 중복 쌓임을 조심해야 한다. del, mod는 특별히 신경쓸 필요 없다.
 * 어쨌든, 위와 같이 period 중심제이므로, 아직 period 덜 찼을 때는 그 plan은 그냥 넘어가면 되는 것이다. 즉, del, mod 같은 것들은 실제 plan에서 pass될 가능성이 꽤 많다.
 * 마지막 인수는 실행 주기인데, 이게 있어야 work-list와 연결될 수 있는 1개의 job을 식별할 수 있다. STOP, PASS, RUN, COMPLETE가 있으며, 실제 표현은 STOPPED, PASSED, RUNNING, DONE이다.
+* #를 붙여서 하도록. #가 붙으면 TAG QUREY를 날리고, 없으면 그냥 날린다. 그래야 INSTA, NAVER 등 여러 MEDIA에 접근 가능.
+* job들을 최대한 parallel로 하는 것도 가능하긴 하겠지만 일단 work-list도 1개만 쓰는게 좋고 하기 때문에 일단 serial로 가고 나중에 format을 더 복잡성있게 만든다.
+* stopped는 1개여야만 하고 running도 1개여야만 하다. 나머지는 passed나 done밖에 없어야 한다. 그리고 그냥 추가된 상태도 있을 수 있으므로 waiting로 둔다.
+* crashed는... 정상종료시에는 항상 running->stopped로 해둬야 하는데, 그대로 running으로 종료되었다거나 할 때... 알아차릴 수 있다. 이것은 exception으로 throw해주면 된다.
 
-NEW, INSTAGRAM, #먹스타그램, RESTAURANT, 1
-NEW, INSTAGRAM, #먹방, RESTAURANT, 1
-* NEW, NAVER, 맛집, RESTAURANT, 1
+NEW, INSTAGRAM, #먹스타그램, RESTAURANT, 1, WAITING
+NEW, INSTAGRAM, #먹방, RESTAURANT, 1, WAITING
+* NEW, NAVER, 맛집, RESTAURANT, 1, WAITING
 * DEL, INSTAGRAM, #먹스타그램, RESTAURANT
 * DEL, INSTAGRAM, #먹방, RESTAURANT, 7
 * MOD, INSTAGRAM, #먹스타그램, RESTAURANT, 30
 * MOD, INSTAGRAM, #먹방, RESTAURANT, 30
-
-* #를 붙여서 하도록. #가 붙으면 TAG QUREY를 날리고, 없으면 그냥 날린다. 그래야 INSTA, NAVER 등 여러 MEDIA에 접근 가능.
-* 같은 SERVICE TABLE을 참조하는 JOB들은 SERIAL, 다른 것들은 PARARELL로 하면 된다.
-* 근데 그렇게 한다는 것은 결국 work-list가 여러개여야 될수도 있는 것인데, 그렇게 하거나 아니면 1개를 쓰더라도 어차피 scheduling 상 돌아가기는 할 것이다.(pass를 계속 해가면서 안 겹칠 때 실행.)
-* 일단은 1개로 하고 즉 stopped는 1개여야만 하고 running도 1개여야만 하다. 나머지는 passed나 done밖에 없어야 한다. 그리고 그냥 추가된 상태도 있을 수 있으므로 RESERVED로 둔다.
-* crashed는... 정상종료시에는 항상 running->stopped로 해둬야 하는데, 그대로 running으로 종료되었다거나 할 때... 알아차릴 수 있다. 이것은 exception으로 throw해주면 된다.

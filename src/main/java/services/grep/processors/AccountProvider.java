@@ -10,7 +10,9 @@ import java.util.List;
 
 import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
 import main.java.services.grep.exceptions.InstagramLibraryException;
+import main.java.services.grep.exceptions.UnexpectedFileFormatException;
 import main.java.services.grep.utils.Constants;
+import main.java.services.grep.utils.FileManager;
 
 /**
  * 
@@ -62,37 +64,16 @@ public class AccountProvider {
 	public void initAccounts() {
 		BufferedReader reader = null;
 		
-		final String FILE_INIT = "account-info";
-		final String PREFIX_COMMENTS = "\\*";
-		final String REGEX_DECLARE = "^\\s*("
-				+ Constants.TARGET_SERVICES[0] + "|" // instagram
-				+ Constants.TARGET_SERVICES[1] + "|" // naver
-				+ Constants.TARGET_SERVICES[2] + "|" // facebook
-				+ ")\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*\\w+\\s*,\\s*(\\w|.)+\\s*,\\s*("
-				+ ProcessingType.NONE + "|"
-				+ ProcessingType.SERIAL + "|"
-				+ ProcessingType.PARALLEL + "|"
-				+ ProcessingType.BOTH + ")\\s*$";
-		final String STR_DELIMITER = "\\s*,\\s*";
-		final int ARG_LIMIT = 5;
+		List<String[]> parseResult = null;
 		
 		try {
-			reader = new BufferedReader(new FileReader(FILE_INIT));
-			
-			String line = null;
-			while((line = reader.readLine()) != null) {
-				line = line.trim();
-				
-				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
-					continue;
-				}
-				
-				if(!line.matches(REGEX_DECLARE)) {
-					//TODO: throws exception
-				}
-				
-				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
-				
+			parseResult = FileManager.parseAccountInit();
+		} catch (UnexpectedFileFormatException e) {
+			e.printStackTrace();
+		}
+		
+		if(parseResult != null) {
+			for(String[] array : parseResult) {
 				ProcessingType processingType = ProcessingType.BOTH;
 				
 				if(!array[4].isEmpty()) {
@@ -107,20 +88,10 @@ public class AccountProvider {
 				
 				insertAccount(array[0], array[1], array[2], array[3], processingType, false);
 			}
-			
-			// 그리고는 callback 날린다.
-			callback.onAccountInit(accounts);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				reader.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
 		}
+		
+		// 그리고는 callback 날린다.
+		callback.onAccountInit(accounts);
 	}
 	
 	// 그냥 넘어오는 것은 default로 생각하고 callback 부른다.

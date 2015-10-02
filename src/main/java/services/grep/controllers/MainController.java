@@ -11,6 +11,7 @@ import main.java.services.grep.processors.AccountProvider;
 import main.java.services.grep.processors.AccountProvider.AccountCallback;
 import main.java.services.grep.processors.DBAccessor;
 import main.java.services.grep.processors.ProcessingType;
+import main.java.services.grep.processors.TargetServices;
 import main.java.services.grep.processors.TaskManager;
 import main.java.services.grep.processors.TaskManager.TaskCallback;
 import main.java.services.grep.utils.Constants;
@@ -38,8 +39,6 @@ public class MainController implements AccountCallback, TaskCallback {
 	private MultiPrinter multiPrinter;
 	// 최근값, 범위, 수정사항. 범위도 물론 최근값부터 하게 할 수 있지만, 최근값 모드를 따로 두는것도 사용성에서는 의미가 있다.
 	private enum ExecuteMode {fetch, range, update};
-	private String table = Constants.TARGET_TABLE;
-	private String[] tags = Constants.TARGET_TAGS;
 	
 	public MainController() {
 		this(false, false, false, false);
@@ -61,13 +60,18 @@ public class MainController implements AccountCallback, TaskCallback {
 		
 		final String FILE_INIT = "total-plan";
 		final String PREFIX_COMMENTS = "\\*";
-		final String REGEX_DECLARE = "^(NEW|MOD|DEL)\\s*,\\s*("
-				+ Constants.TARGET_SERVICES[0] + "|" // instagram
-				+ Constants.TARGET_SERVICES[1] + "|" // naver
-				+ Constants.TARGET_SERVICES[2] + "|" // facebook
-				+ ")\\s*,\\s*#?\\w+\\s*,\\s*d+\\s*,\\s*(RESERVED|RUNNING|STOPPED|PASSED|DONE)\\s*$";
 		final String STR_DELIMITER = "\\s*,\\s*";
-		final int ARG_LIMIT = 5;
+		final String REGEX_DECLARE = "^(NEW|MOD|DEL)"
+				+ STR_DELIMITER + "("
+				+ TargetServices.INSTAGRAM.toString() + "|"
+				+ TargetServices.FACEBOOK.toString() + "|"
+				+ TargetServices.NAVER.toString() + "|"
+				+ ")"
+				+ STR_DELIMITER + "#?\\w+" // hashtag or plain string
+				+ STR_DELIMITER + "\\w+" // table name
+				+ STR_DELIMITER + "\\d+" // period number
+				+ STR_DELIMITER + "(WAITING|RUNNING|STOPPED|PASSED|DONE)\\s*$"; // and status
+		final int ARG_LIMIT = 6;
 		
 		try {
 			reader = new BufferedReader(new FileReader(FILE_INIT));

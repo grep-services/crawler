@@ -161,7 +161,7 @@ public class Account {
 		int rate_remaining = getRateRemaining();
 		
 		if(rate_remaining != Constants.INT_NULL) {
-			if(rate_remaining < Constants.RATE_LIMIT / 2) {
+			if(rate_remaining < Constants.INSTAGRAM_RATE_LIMIT / 2) {
 				setTaskStatus(TaskStatus.UNAVAILABLE);
 			} else {
 				setTaskStatus(TaskStatus.FREE);
