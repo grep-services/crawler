@@ -1,18 +1,12 @@
 package main.java.services.grep.processors;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
 import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
 import main.java.services.grep.exceptions.InstagramLibraryException;
-import main.java.services.grep.exceptions.UnexpectedFileFormatException;
-import main.java.services.grep.utils.Constants;
-import main.java.services.grep.utils.FileManager;
+import main.java.services.grep.utils.MultiPrinter;
 
 /**
  * 
@@ -30,7 +24,6 @@ public class AccountProvider {
 	
 	// interface는 public, method는 public abstract, field는 public static final이 default이다.
 	public interface AccountCallback {
-		void onAccountInit(List<Account> accounts);
 		void onAccountInserted(Account account);
 		void onAccountRemoved();// 미정
 		void onAccountModified();// 미정
@@ -41,18 +34,16 @@ public class AccountProvider {
 	private AccountObserver observer;
 	
 	public AccountProvider(AccountCallback callback) {// 최소한 callback은 있어야 한다.
-		this(callback, false);// 변수 없으면 첫 실행이라고 가정한다.
-	}
-	public AccountProvider(AccountCallback callback, boolean hasInit) {// 이미 초기화되었는지도 받는다.
-		// set callback
 		this.callback = callback;
-		// init accounts
-		if(hasInit) {
-			initAccounts();
-		}
+	}
+	
+	public void startObserving() {
 		// observer 만들고 실행. init하면서 이미 remaining set되었겠지만 겹치게 놔둔다. 빼면 1개단위 추가할 때 바로 적용도 안되고, 차라리 겹치는게 낫다.
-		observer = new AccountObserver();
-		observer.start();
+		if(observer == null) {// 1번만 실행될 수 있도록 한다.
+			observer = new AccountObserver();
+			
+			observer.start();
+		}
 	}
 	
 	/*
@@ -60,18 +51,10 @@ public class AccountProvider {
 	 * 웬만하면 외부 input file로부터 받는것이 추후 server에서 terminal로 실행시키는 등의 작업을 할 때
 	 * 일일히 recompile하지 않아도 되어서 더 편할 것이다.
 	 * 그리고, 받는 것으로 끝이 아니라, 받은 후 몇가지 설정도 해야 한다.
+	 * 
+	 * 그리고, 이렇게 multi로 설정하는 것은 from file 말고는 없을 것이므로 args를 저렇게 file에서 parsing한 것을 받게 했다.
 	 */
-	public void initAccounts() {
-		BufferedReader reader = null;
-		
-		List<String[]> parseResult = null;
-		
-		try {
-			parseResult = FileManager.parseAccountInit();
-		} catch (UnexpectedFileFormatException e) {
-			e.printStackTrace();
-		}
-		
+	public void initAccounts(List<String[]> parseResult) {
 		if(parseResult != null) {
 			for(String[] array : parseResult) {
 				ProcessingType processingType = ProcessingType.BOTH;
@@ -86,18 +69,11 @@ public class AccountProvider {
 					}
 				}
 				
-				insertAccount(array[0], array[1], array[2], array[3], processingType, false);
+				insertAccount(array[0], array[1], array[2], array[3], processingType/*, false*/);
 			}
 		}
-		
-		// 그리고는 callback 날린다.
-		callback.onAccountInit(accounts);
 	}
 	
-	// 그냥 넘어오는 것은 default로 생각하고 callback 부른다.
-	public void insertAccount(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type) {
-		insertAccount(account_name, client_id, client_secret, access_token, processing_type, true);
-	}
 	/*
 	 * remaining 구하는 이슈가 제일 중요한데, queue를 만들어 실시간 체크도 쉽지는 않다.
 	 * 현재는 periodically checking 방식 쓰기로 했다.
@@ -106,19 +82,19 @@ public class AccountProvider {
 	 * 
 	 * 그리고 insert같은 작업들이 꼭 file을 통해서 오라는 법도 없고 terminal을 통해서 실시간으로 들어올 수도 있도록 만들 것이다.
 	 */
-	public void insertAccount(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type, boolean shouldCallback) {
+	public void insertAccount(String account_name, String client_id, String client_secret, String access_token, ProcessingType processing_type/*, boolean shouldCallback*/) {
 		// 일단 account를 만든다. status는 내부에서 처리된다.
 		Account account = new Account(account_name, client_id, client_secret, access_token, processing_type);
 		// 다 되고나서야 추가를 한다. 그래야 실제 사용 가능할 것이다.
 		if(accounts == null) {
 			accounts = new ArrayList<Account>();
-		} else {
-			accounts.add(account);					
+			
+			startObserving();// 어차피 not null 이기만 하면 된다. 이 위치가 코드 중복보다는 낫다.
 		}
-		// callback 날린다.
-		if(shouldCallback) {
-			callback.onAccountInserted(account);
-		}
+		
+		accounts.add(account);
+		
+		callback.onAccountInserted(account);
 	}
 	
 	// 사용 간편하게 하려면, stop 등등의 절차 없이, remove에서 알아서 모든걸 해줘야 한다.
@@ -140,6 +116,13 @@ public class AccountProvider {
 					throw new CannotAccessSuchAccountException(account_name, taskStatus);
 				}
 			}
+		}
+		
+		if(accounts.isEmpty()) {
+			accounts = null;
+			
+			// observer의 loop는 accounts lock 아니므로 이렇게 해도 문제될 것 없다.
+			observer = null; 
 		}
 	}
 	
@@ -177,7 +160,7 @@ public class AccountProvider {
 		
 		@Override
 		public void run() {
-			while(true) {
+			while(accounts != null) {
 				try {
 					synchronized(accounts) {// accounts 건들고 있을때 다른데서 추가/변경/삭제 못하게 막아둔다.(꼭 필요한 부분만 했다.)
 						for(Account account : accounts) {
@@ -194,8 +177,7 @@ public class AccountProvider {
 					
 					Thread.sleep(OBSERVATION_PERIOD);
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					MultiPrinter.getInstance().printException(e.getMessage());
 				}
 			}
 		}

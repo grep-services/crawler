@@ -18,6 +18,13 @@ import main.java.services.grep.processors.TargetServices;
  * 
  * method들을 static으로 하긴 했지만 왠만해서는 ref 유지되는 방향으로 가야 될 것 같다.
  * 그래야 lock 기능을 제대로 발휘할 수 있을 것이기 때문이다.
+ * 
+ * 이건... singleton 말고 일단 최대한 main centered 되게끔 해본다.
+ * call back하는 형식으로 최대한 main에의 instance로만 해결해본다.
+ * 근데 그렇게 하니깐 좀 루트가 길어진다. singleton으로 간다.
+ * 
+ * simple한 scan을 위해서는 scanner class를 쓰면 되지만 어차피 regex checking 필요한건 마찬가지이고
+ * lock 역시 nio package lock 쓰면 될 것 같긴 하지만 결국 customizing 필요할 것이어서 단순 overwriting으로 간다.
  */
 public class FileManager {
 	
@@ -28,13 +35,13 @@ public class FileManager {
 	private static final String DELIMITER = BLANK + COMMA + BLANK;
 	private static final String STARTS = "^";
 	private static final String ENDS = "$";
+	private static final String NUMS = "\\d+";
 	private static final String WORDS = "\\w+";
-	private static final String WORDS_WITH_DOT = "(\\w|.)+";
 	private static final String BRACKET_OPEN = "(";
 	private static final String BRACKET_CLOSE = ")";
 	private static final String OR = "|";
 	
-	public FileManager() {
+	private FileManager() {
 	}
 	
 	/*
@@ -43,7 +50,7 @@ public class FileManager {
 	 * 그렇지만 각 class에서 하면 될 일을 여기로 가져온 이유는 file을 좀더 정확히 다루기 위해서이다.
 	 * 앞으로는 file의 lock 등을 더 구체적으로 만들 것이다.
 	 */
-	public static List<String[]> parseInit(String file_init, String regex_declare, int arg_limit) throws UnexpectedFileFormatException {
+	public List<String[]> parseFile(String file_init, String regex_declare, int arg_limit) throws UnexpectedFileFormatException {
 		List<String[]> result = null;
 		
 		BufferedReader reader = null;
@@ -86,15 +93,27 @@ public class FileManager {
 		return result;
 	}
 	
-	/*
-	 * runnable까지 받아서 하는건 좀 힘들듯 하다.
-	 * 워낙 각 class별로 local vars가 많기 때문이다.
-	 * 이정도까지만 해도 적당할 듯 하다.
-	 */
-	public static List<String[]> parseAccountInit() throws UnexpectedFileFormatException {
-		final String FILE_INIT = "account-info";
+	public List<String[]> getInitParams() throws UnexpectedFileFormatException {
+		final String FILE_INIT = "total-plan";
+		final String TAG_OR_WORDS = "#?\\w+";
 		final String REGEX_DECLARE = STARTS + BLANK
-				+ BRACKET_OPEN + TargetServices.INSTAGRAM + OR + TargetServices.FACEBOOK + OR + TargetServices.NAVER + OR + BRACKET_CLOSE + DELIMITER
+				+ BRACKET_OPEN + "NEW" + OR + "MOD" + OR + "DEL" + BRACKET_CLOSE + DELIMITER
+				+ BRACKET_OPEN + TargetServices.INSTAGRAM.toString() + OR + TargetServices.FACEBOOK.toString() + OR + TargetServices.NAVER.toString() + OR + BRACKET_CLOSE + DELIMITER
+				+ TAG_OR_WORDS + DELIMITER // hashtag or plain string
+				+ WORDS + DELIMITER // table name
+				+ NUMS + DELIMITER // period number
+				+ BRACKET_OPEN + "WAITING" + OR + "RUNNING" + OR + "STOPPED" + OR + "PASSED" + OR + "DONE" // and status
+				+ BLANK + ENDS;
+		final int ARG_LIMIT = 6;
+		
+		return parseFile(FILE_INIT, REGEX_DECLARE, ARG_LIMIT);
+	}
+	
+	public List<String[]> getAccountInitParams() throws UnexpectedFileFormatException {
+		final String FILE_INIT = "account-info";
+		final String WORDS_WITH_DOT = "(\\w|.)+";
+		final String REGEX_DECLARE = STARTS + BLANK
+				+ BRACKET_OPEN + TargetServices.INSTAGRAM.toString() + OR + TargetServices.FACEBOOK.toString() + OR + TargetServices.NAVER.toString() + OR + BRACKET_CLOSE + DELIMITER
 				+ WORDS + DELIMITER
 				+ WORDS + DELIMITER
 				+ WORDS + DELIMITER
@@ -103,6 +122,6 @@ public class FileManager {
 				+ BLANK + ENDS;
 		final int ARG_LIMIT = 5;
 		
-		return parseInit(FILE_INIT, REGEX_DECLARE, ARG_LIMIT);
+		return parseFile(FILE_INIT, REGEX_DECLARE, ARG_LIMIT);
 	}
 }

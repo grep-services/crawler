@@ -1,20 +1,15 @@
 package main.java.services.grep.controllers;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.List;
 
+import main.java.services.grep.exceptions.UnexpectedFileFormatException;
 import main.java.services.grep.processors.Account;
 import main.java.services.grep.processors.AccountProvider;
 import main.java.services.grep.processors.AccountProvider.AccountCallback;
 import main.java.services.grep.processors.DBAccessor;
-import main.java.services.grep.processors.ProcessingType;
-import main.java.services.grep.processors.TargetServices;
 import main.java.services.grep.processors.TaskManager;
 import main.java.services.grep.processors.TaskManager.TaskCallback;
-import main.java.services.grep.utils.Constants;
+import main.java.services.grep.utils.FileManager;
 import main.java.services.grep.utils.MultiPrinter;
 
 /**
@@ -36,69 +31,45 @@ public class MainController implements AccountCallback, TaskCallback {
 	private AccountProvider accountProvider;
 	private TaskManager taskManager;
 	private DBAccessor dbAccessor;
-	private MultiPrinter multiPrinter;
-	// 최근값, 범위, 수정사항. 범위도 물론 최근값부터 하게 할 수 있지만, 최근값 모드를 따로 두는것도 사용성에서는 의미가 있다.
-	private enum ExecuteMode {fetch, range, update};
+	private FileManager fileManager;
 	
 	public MainController() {
 		this(false, false, false, false);
 	}
 	
 	public MainController(boolean isDaemon, boolean hasInit, boolean hasAccountInit, boolean hasTaskInit) {
+		fileManager = new FileManager();
+		
 		if(hasInit) {
 			init();
 		}
 		
-		accountProvider = new AccountProvider(this, hasAccountInit);
+		initAccountProvider(hasAccountInit);
+		
 		taskManager = new TaskManager(this, hasTaskInit);
 		dbAccessor = new DBAccessor();
-		multiPrinter = new MultiPrinter();
 	}
 	
 	public void init() {
-		BufferedReader reader = null;
-		
-		final String FILE_INIT = "total-plan";
-		final String PREFIX_COMMENTS = "\\*";
-		final String STR_DELIMITER = "\\s*,\\s*";
-		final String REGEX_DECLARE = "^(NEW|MOD|DEL)"
-				+ STR_DELIMITER + "("
-				+ TargetServices.INSTAGRAM.toString() + "|"
-				+ TargetServices.FACEBOOK.toString() + "|"
-				+ TargetServices.NAVER.toString() + "|"
-				+ ")"
-				+ STR_DELIMITER + "#?\\w+" // hashtag or plain string
-				+ STR_DELIMITER + "\\w+" // table name
-				+ STR_DELIMITER + "\\d+" // period number
-				+ STR_DELIMITER + "(WAITING|RUNNING|STOPPED|PASSED|DONE)\\s*$"; // and status
-		final int ARG_LIMIT = 6;
-		
 		try {
-			reader = new BufferedReader(new FileReader(FILE_INIT));
-			
-			String line = null;
-			while((line = reader.readLine()) != null) {
-				line = line.trim();
-				
-				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
-					continue;
-				}
-				
-				if(!line.matches(REGEX_DECLARE)) {
-					//TODO: throws exception
-				}
-				
-				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
-			}
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
+			fileManager.getInitParams();
+		} catch (UnexpectedFileFormatException e) {
+			MultiPrinter.getInstance().printException(e.getMessage());
+		}
+	}
+	
+	public void initAccountProvider(boolean hasInit) {
+		accountProvider = new AccountProvider(this);
+		
+		if(hasInit) {
 			try {
-				reader.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+				List<String[]> parseResult = fileManager.getAccountInitParams();
+				
+				if(parseResult != null) {// 있다 해놓고 file 없을수도 있고, 내용이 없을수도 있다.
+					accountProvider.initAccounts(parseResult);
+				}
+			} catch (UnexpectedFileFormatException e) {// file 있어도 format 틀릴 수 있다.
+				MultiPrinter.getInstance().printException(e.getMessage());
 			}
 		}
 	}
@@ -141,18 +112,22 @@ public class MainController implements AccountCallback, TaskCallback {
 			new MainController();
 		}
 	}
-
+/*
 	@Override
 	public void onAccountInit(List<Account> accounts) {
 		// 일단 msg 출력해주는게 좋을 것 같다.
-		//multiPrinter.showAccounts(accounts);
-		MultiPrinter.showAccounts(accounts);
+		multiPrinter.showAccounts(accounts);
+		// null에서 처음 init된 것이라면 start될 것이다.
+		accountProvider.startObserving();
 		// task manager에 넘긴다.
 	}
-
+*/
 	@Override
 	public void onAccountInserted(Account account) {
 		// 일단 msg 출력해주는게 좋을 것 같다.
+		MultiPrinter.getInstance().showAccount(account);
+		// null에서 처음 init된 것이라면 start될 것이다.
+		accountProvider.startObserving();
 		// task manager에 넘긴다.
 	}
 
