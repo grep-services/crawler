@@ -191,7 +191,7 @@ class Task extends Thread {
 					// 다 쓴건 status만 정리해두면 된다.
 					account.setTaskStatus(TaskStatus.UNAVAILABLE);
 				} catch (InstagramLibraryException e) {
-					MultiPrinter.print(e.getMessage());
+					MultiPrinter.getInstance().print(e.getMessage());
 				}
 			}
 		}

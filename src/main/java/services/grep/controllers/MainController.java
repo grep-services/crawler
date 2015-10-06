@@ -31,15 +31,12 @@ public class MainController implements AccountCallback, TaskCallback {
 	private AccountProvider accountProvider;
 	private TaskManager taskManager;
 	private DBAccessor dbAccessor;
-	private FileManager fileManager;
 	
 	public MainController() {
 		this(false, false, false, false);
 	}
 	
 	public MainController(boolean isDaemon, boolean hasInit, boolean hasAccountInit, boolean hasTaskInit) {
-		fileManager = new FileManager();
-		
 		if(hasInit) {
 			init();
 		}
@@ -52,7 +49,7 @@ public class MainController implements AccountCallback, TaskCallback {
 	
 	public void init() {
 		try {
-			fileManager.getInitParams();
+			FileManager.getInstance().getInitParams();
 		} catch (UnexpectedFileFormatException e) {
 			MultiPrinter.getInstance().printException(e.getMessage());
 		}
@@ -63,7 +60,7 @@ public class MainController implements AccountCallback, TaskCallback {
 		
 		if(hasInit) {
 			try {
-				List<String[]> parseResult = fileManager.getAccountInitParams();
+				List<String[]> parseResult = FileManager.getInstance().getAccountInitParams();
 				
 				if(parseResult != null) {// 있다 해놓고 file 없을수도 있고, 내용이 없을수도 있다.
 					accountProvider.initAccounts(parseResult);

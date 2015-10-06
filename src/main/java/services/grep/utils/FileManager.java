@@ -28,6 +28,8 @@ import main.java.services.grep.processors.TargetServices;
  */
 public class FileManager {
 	
+	private static final FileManager fileManager = new FileManager();
+	
 	// REGEX 편의 및 오차 방지 위해 선언.
 	private static final String COMMENTS = "\\*";
 	private static final String BLANK = "\\s*";
@@ -44,13 +46,17 @@ public class FileManager {
 	private FileManager() {
 	}
 	
+	public static FileManager getInstance() {
+		return fileManager;
+	}
+	
 	/*
 	 * 나중에 format이 복잡해지면 모르겠지만, 일단 지금은 init의 형태를 대략 통일해놓았다.
 	 * 그렇기 때문에 같은 방식으로 parsing할 수 있다.
 	 * 그렇지만 각 class에서 하면 될 일을 여기로 가져온 이유는 file을 좀더 정확히 다루기 위해서이다.
 	 * 앞으로는 file의 lock 등을 더 구체적으로 만들 것이다.
 	 */
-	public List<String[]> parseFile(String file_init, String regex_declare, int arg_limit) throws UnexpectedFileFormatException {
+	private List<String[]> parseFile(String file_init, String regex_declare, int arg_limit) throws UnexpectedFileFormatException {
 		List<String[]> result = null;
 		
 		BufferedReader reader = null;
