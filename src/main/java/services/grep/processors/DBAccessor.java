@@ -8,8 +8,21 @@ package main.java.services.grep.processors;
  */
 public class DBAccessor {
 
-	public DBAccessor() {
-		// TODO Auto-generated constructor stub
+	private static final DBAccessor dbAccessor = new DBAccessor();
+	
+	private DBAccessor() {
+	}
+	
+	public static DBAccessor getInstance() {
+		return dbAccessor;
+	}
+	
+	public long getMaxItemId(String tableName) {
+		return 100;
+	}
+	
+	public long getMinItemId(String tableName) {
+		return 0;
 	}
 
 }

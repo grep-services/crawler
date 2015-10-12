@@ -6,6 +6,8 @@ import java.util.List;
 
 import main.java.services.grep.exceptions.CannotAccessSuchAccountException;
 import main.java.services.grep.exceptions.InstagramLibraryException;
+import main.java.services.grep.exceptions.UnexpectedFileFormatException;
+import main.java.services.grep.utils.FileManager;
 import main.java.services.grep.utils.MultiPrinter;
 
 /**
@@ -34,7 +36,15 @@ public class AccountProvider {
 	private AccountObserver observer;
 	
 	public AccountProvider(AccountCallback callback) {// 최소한 callback은 있어야 한다.
+		this(callback, false);
+	}
+	
+	public AccountProvider(AccountCallback callback, boolean hasInit) {
 		this.callback = callback;
+		
+		if(hasInit) {
+			init();
+		}
 	}
 	
 	public void startObserving() {
@@ -51,26 +61,30 @@ public class AccountProvider {
 	 * 웬만하면 외부 input file로부터 받는것이 추후 server에서 terminal로 실행시키는 등의 작업을 할 때
 	 * 일일히 recompile하지 않아도 되어서 더 편할 것이다.
 	 * 그리고, 받는 것으로 끝이 아니라, 받은 후 몇가지 설정도 해야 한다.
-	 * 
-	 * 그리고, 이렇게 multi로 설정하는 것은 from file 말고는 없을 것이므로 args를 저렇게 file에서 parsing한 것을 받게 했다.
 	 */
-	public void initAccounts(List<String[]> parseResult) {
-		if(parseResult != null) {
-			for(String[] array : parseResult) {
-				ProcessingType processingType = ProcessingType.BOTH;
-				
-				if(!array[4].isEmpty()) {
-					if(array[4].equals(ProcessingType.NONE.toString())) {
-						processingType = ProcessingType.NONE;
-					} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
-						processingType = ProcessingType.SERIAL;
-					} else if(array[4].equals(ProcessingType.PARALLEL.toString())) {
-						processingType = ProcessingType.PARALLEL;
+	public void init() {
+		try {
+			List<String[]> parseResult = FileManager.getInstance().getAccountInitParams();
+			
+			if(parseResult != null) {// 있다 해놓고 file 없을수도 있고, 내용이 없을수도 있다.
+				for(String[] array : parseResult) {
+					ProcessingType processingType = ProcessingType.BOTH;
+					
+					if(!array[4].isEmpty()) {
+						if(array[4].equals(ProcessingType.NONE.toString())) {
+							processingType = ProcessingType.NONE;
+						} else if(array[4].equals(ProcessingType.SERIAL.toString())) {
+							processingType = ProcessingType.SERIAL;
+						} else if(array[4].equals(ProcessingType.PARALLEL.toString())) {
+							processingType = ProcessingType.PARALLEL;
+						}
 					}
+					
+					insertAccount(array[0], array[1], array[2], array[3], processingType/*, false*/);
 				}
-				
-				insertAccount(array[0], array[1], array[2], array[3], processingType/*, false*/);
 			}
+		} catch (UnexpectedFileFormatException e) {// file 있어도 format 틀릴 수 있다.
+			MultiPrinter.getInstance().printException(e.getMessage());
 		}
 	}
 	

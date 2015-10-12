@@ -22,6 +22,11 @@ import main.java.services.grep.utils.MultiPrinter;
  * 당장은 몰라도, 앞으로는 Daemon으로 작동할 수 있도록 만든다.
  * 타 object들도 일단 가능한 대로 singleton보다 단순 instance 방식으로 간다.
  * 
+ * 하지만, task class에서 db class 요청하는 등
+ * 사실상 main에서의 central control이 힘들긴 하다.
+ * 
+ * 문제 없으므로, 필요한 것들은 다 singleton으로 간다.
+ * 
  * @author marine
  * @since 150706
  * 
@@ -30,21 +35,18 @@ public class MainController implements AccountCallback, TaskCallback {
 
 	private AccountProvider accountProvider;
 	private TaskManager taskManager;
-	private DBAccessor dbAccessor;
 	
 	public MainController() {
 		this(false, false, false, false);
 	}
 	
-	public MainController(boolean isDaemon, boolean hasInit, boolean hasAccountInit, boolean hasTaskInit) {
+	public MainController(boolean isDaemon, boolean hasInit, boolean hasAccounts, boolean hasTasks) {
 		if(hasInit) {
 			init();
 		}
 		
-		initAccountProvider(hasAccountInit);
-		
-		taskManager = new TaskManager(this, hasTaskInit);
-		dbAccessor = new DBAccessor();
+		accountProvider = new AccountProvider(this, hasAccounts);
+		taskManager = new TaskManager(this, hasTasks);
 	}
 	
 	public void init() {
@@ -52,22 +54,6 @@ public class MainController implements AccountCallback, TaskCallback {
 			FileManager.getInstance().getInitParams();
 		} catch (UnexpectedFileFormatException e) {
 			MultiPrinter.getInstance().printException(e.getMessage());
-		}
-	}
-	
-	public void initAccountProvider(boolean hasInit) {
-		accountProvider = new AccountProvider(this);
-		
-		if(hasInit) {
-			try {
-				List<String[]> parseResult = FileManager.getInstance().getAccountInitParams();
-				
-				if(parseResult != null) {// 있다 해놓고 file 없을수도 있고, 내용이 없을수도 있다.
-					accountProvider.initAccounts(parseResult);
-				}
-			} catch (UnexpectedFileFormatException e) {// file 있어도 format 틀릴 수 있다.
-				MultiPrinter.getInstance().printException(e.getMessage());
-			}
 		}
 	}
 	

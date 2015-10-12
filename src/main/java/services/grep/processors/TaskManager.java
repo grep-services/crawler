@@ -1,21 +1,18 @@
 package main.java.services.grep.processors;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.regex.Pattern;
+
+import org.apache.commons.lang3.Range;
+import org.jinstagram.entity.users.feed.MediaFeedData;
 
 import main.java.services.grep.exceptions.InstagramLibraryException;
 import main.java.services.grep.exceptions.PageNotFoundException;
 import main.java.services.grep.exceptions.RateLimitExceedException;
-import main.java.services.grep.utils.Constants;
+import main.java.services.grep.exceptions.UnexpectedFileFormatException;
+import main.java.services.grep.utils.FileManager;
 import main.java.services.grep.utils.MultiPrinter;
-
-import org.apache.commons.lang3.Range;
-import org.jinstagram.entity.users.feed.MediaFeedData;
 
 /**
  * 
@@ -58,50 +55,48 @@ public class TaskManager {
 		this.callback = callback;
 		
 		if(hasInit) {
-			initTasks();
+			init();
 		}
 	}
 	
-	public void initTasks() {
-		BufferedReader reader = null;
-		
-		final String FILE_INIT = "work-list";
-		final String PREFIX_COMMENTS = "\\*";
-		final String REGEX_DECLARE = "^(INCLUDE|EXCLUDE)\\s*,\\s*(FIRST|LAST|MIN|MAX|\\d+)\\s*,\\s*(FIRST|LAST|MIN|MAX|\\d+)\\s*$";
-		final String STR_DELIMITER = "\\s*,\\s*";
-		final int ARG_LIMIT = 3;
-		
+	public void init() {
 		try {
-			reader = new BufferedReader(new FileReader(FILE_INIT));
+			List<String[]> parsedResult = FileManager.getInstance().getTaskInitParams();
 			
-			String line = null;
-			while((line = reader.readLine()) != null) {
-				line = line.trim();
-				
-				if(line.startsWith(PREFIX_COMMENTS) || line.isEmpty()) {
-					continue;
+			// INCLUDE, EXCLUDE로 일단 정렬부터 한다. 그래야 RANGE SUBS 가능.
+			parsedResult.sort(new Comparator<String[]>() {
+				@Override
+				public int compare(String[] o1, String[] o2) {
+					if(o1[0].equals("INCLUDE") && o2[0].equals("EXCLUDE")) {
+						return 1;
+					} else if(o1[0].equals("EXCLUDE") && o2[0].equals("INCLUDE")) {
+						return -1;
+					} else {
+						return 0;
+					}
 				}
-				
-				if(!line.matches(REGEX_DECLARE)) {
-					//TODO: throws exception
-				}
-				
-				String[] array = line.split(STR_DELIMITER, ARG_LIMIT);
-			}
+			});
 			
-			// 그리고는 callback 날린다.
-			callback.onTaskInit();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try {
-				reader.close();
-			} catch (IOException e) {
-				e.printStackTrace();
+			for(String[] array : parsedResult) {
+				if(array[0].equals("INCLUDE")) {
+					if(schedules == null) {
+						schedules = new ArrayList<Range<Long>>();
+					}
+					
+					schedules.add(arrayToRange(array));
+				} else if(array[0].equals("EXCLUDE")) {
+					
+				}
 			}
+		} catch (UnexpectedFileFormatException e) {
+			MultiPrinter.getInstance().printException(e.getMessage());
 		}
+	}
+	
+	public Range<Long> arrayToRange(String[] array) {
+		Range<Long> range = null;
+		
+		return range;
 	}
 
 	/*

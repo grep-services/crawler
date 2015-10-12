@@ -130,4 +130,16 @@ public class FileManager {
 		
 		return parseFile(FILE_INIT, REGEX_DECLARE, ARG_LIMIT);
 	}
+	
+	public List<String[]> getTaskInitParams() throws UnexpectedFileFormatException {
+		final String FILE_INIT = "work-list";
+		final String REGEX_DECLARE = STARTS + BLANK
+				+ BRACKET_OPEN + "INCLUDE" + OR + "EXCLUDE" + BRACKET_CLOSE + DELIMITER
+				+ BRACKET_OPEN + "FIRST" + OR + "LAST" + OR + "MIN" + OR + "MAX" + OR + NUMS + BRACKET_CLOSE + DELIMITER
+				+ BRACKET_OPEN + "FIRST" + OR + "LAST" + OR + "MIN" + OR + "MAX" + OR + NUMS + BRACKET_CLOSE
+				+ BLANK + ENDS;
+		final int ARG_LIMIT = 3;
+		
+		return parseFile(FILE_INIT, REGEX_DECLARE, ARG_LIMIT);
+	}
 }

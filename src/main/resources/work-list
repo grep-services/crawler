@@ -10,3 +10,4 @@
 * 사용되는 단어들은, INCLUDE/EXCLUDE, FIRST/LAST, MIN/MAX, 0/자연수이고, 특히 FIRST/LAST는 외부DB, MIN/MAX는 내부DB용이다.
 
 INCLUDE, FIRST, LAST
+* INCLUDE, MAX, LAST : 내부DB끝부터 외부DB끝까지 CRAWL 바람.
