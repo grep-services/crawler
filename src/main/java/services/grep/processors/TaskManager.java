@@ -43,7 +43,7 @@ public class TaskManager {
 	
 	private TaskCallback callback;
 	// 초기엔 1개라도, 나중에는 분산될 수 있다. 특히 upper가 -1인 range는 recent부터받으라는 것으로 한다.
-	private List<Range<Long>> schedules;
+	//private List<Range<Long>> schedules;
 	private List<Task> tasks;
 
 	public TaskManager(TaskCallback callback) {
@@ -62,6 +62,8 @@ public class TaskManager {
 	public void init() {
 		try {
 			List<String[]> parsedResult = FileManager.getInstance().getTaskInitParams();
+			
+			Schedule schedule = new Schedule(parsedResult);// 전체의 schedule. 나중에 분할될 수도 있다.
 			
 			// INCLUDE, EXCLUDE로 일단 정렬부터 한다. 그래야 RANGE SUBS 가능.
 			parsedResult.sort(new Comparator<String[]>() {

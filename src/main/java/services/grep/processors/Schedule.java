@@ -1,5 +1,6 @@
 package main.java.services.grep.processors;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.Range;
@@ -26,15 +27,35 @@ import org.apache.commons.lang3.Range;
  */
 public class Schedule {
 	
+	private List<Range<Long>> netRanges;
 	private List<Range<Long>> includeRanges;
 	private List<Range<Long>> excludeRanges;
 	
 	public Schedule() {
-		
 	}
 	
 	public Schedule(List<String[]> parsedResult) {
+		for(String[] array : parsedResult) {
+			if(array[0].equals("INCLUDE")) {
+				if(includeRanges == null) {
+					includeRanges = new ArrayList<Range<Long>>();
+				}
+				
+				includeRanges.add(arrayToRange(array));
+			} else if(array[0].equals("EXCLUDE")) {
+				if(excludeRanges == null) {
+					excludeRanges = new ArrayList<Range<Long>>();
+				}
+				
+				excludeRanges.add(arrayToRange(array));
+			}
+		}
+	}
+	
+	private Range<Long> arrayToRange(String[] array){
+		Range<Long> range = null;
 		
+		return range;
 	}
 	
 	// 분사 할 때는 이렇게 하는게 더 나을 것이다.
@@ -52,6 +73,41 @@ public class Schedule {
 	
 	public void sortRangeList(List<Range<Long>> ranges) {
 		
+	}
+	
+	public void calculateRange() {
+		
+	}
+	
+	// 여러 range를 가진 상태에서, 범위 안겹치는 내에서 새로운 range를 짜낸다. - serial
+	public Range<Long> allocRange() {
+		
+	}
+	
+	// 여러 schedule을 가진 상태에서, 범위 안겹치는 내에서 새로운 schedule을 짜낸다. - paralell
+	public Schedule allocSchedule() {
+		
+	}
+	
+	// schedule의 크기가 늘고 줄고에 따라, 각 range들의 할당량도 변화되게 한다.
+	public void refreshSchedule() {
+		
+	}
+	
+	private long getFirst() {
+		return 0;
+	}
+	
+	private long getLast() {
+		return Long.MAX_VALUE;// insta current max의 9배 정도 됨...
+	}
+	
+	private long getMin() {
+		return 0;
+	}
+	
+	private long getMax() {
+		return 100;
 	}
 	
 }
