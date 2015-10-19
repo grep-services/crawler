@@ -1,11 +1,16 @@
 package main.java.services.grep.processors;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.lang3.Range;
 
 /**
+ * 
+ * 형태적으로, range의 list이다.
+ * 그리고 1개의 task는 1개의 account를 가지고(대기 account는 있을 수 있어도) 1개의 schedule을 가진다.
+ * 당사자인 account는 schedule에서 range를 꺼내서 계속 작업한다.
  * 
  * range list를 갖고 있는 것으로 끝나는 것이 아니다.
  * 그것의 +, - 즉 net를 구한 뒤 반환하는 기능이 필요.
@@ -34,6 +39,7 @@ public class Schedule {
 	public Schedule() {
 	}
 	
+	// string format은 이미 check한 것으로 마무리한다고 생각한다.
 	public Schedule(List<String[]> parsedResult) {
 		for(String[] array : parsedResult) {
 			if(array[0].equals("INCLUDE")) {
@@ -41,57 +47,90 @@ public class Schedule {
 					includeRanges = new ArrayList<Range<Long>>();
 				}
 				
-				includeRanges.add(arrayToRange(array));
+				includeRanges.add(toRange(array[1], array[2]));
 			} else if(array[0].equals("EXCLUDE")) {
 				if(excludeRanges == null) {
 					excludeRanges = new ArrayList<Range<Long>>();
 				}
 				
-				excludeRanges.add(arrayToRange(array));
+				excludeRanges.add(toRange(array[1], array[2]));
 			}
 		}
-	}
-	
-	private Range<Long> arrayToRange(String[] array){
-		Range<Long> range = null;
 		
-		return range;
+		calculateRange();
 	}
 	
 	// 분사 할 때는 이렇게 하는게 더 나을 것이다.
 	public Schedule(List<Range<Long>> includeRanges, List<Range<Long>> excludeRanges) {
+		this.includeRanges = includeRanges;
+		this.excludeRanges = excludeRanges;
 		
+		calculateRange();
 	}
 	
-	public void includeRange() {
+	// digit 말고 letter도 있으므로 필요하다.
+	private Range<Long> toRange(String strFrom, String strTo){
+		Long from, to;
 		
-	}
-	
-	public void excludeRange() {
+		if(strFrom.equals("First")) {
+			from = getFirst();
+		} else if(strFrom.equals("Last")) {
+			from = getLast();
+		} else if(strFrom.equals("Max")) {
+			from = getMax();
+		} else if(strFrom.equals("Min")) {
+			from = getMin();
+		} else {
+			from = Long.valueOf(strFrom);
+		}
 		
+		if(strTo.equals("First")) {
+			to = getFirst();
+		} else if(strTo.equals("Last")) {
+			to = getLast();
+		} else if(strTo.equals("Max")) {
+			to = getMax();
+		} else if(strTo.equals("Min")) {
+			to = getMin();
+		} else {
+			to = Long.valueOf(strTo);
+		}
+		
+		return Range.between(from, to);
 	}
 	
 	public void sortRangeList(List<Range<Long>> ranges) {
 		
 	}
 	
+	/*
+	 * net = include - exclude 하는 부분.
+	 * 이 과정에서 정렬 역시 되도록 한다.
+	 */
 	public void calculateRange() {
 		
 	}
 	
-	// 여러 range를 가진 상태에서, 범위 안겹치는 내에서 새로운 range를 짜낸다. - serial
-	public Range<Long> allocRange() {
+	/*
+	 * account에게 붙여줄 range의 size를 미리 예상하기는 힘들다.
+	 * 대략 예상한다면 효율적일수는 있으나, contents간의 간격(밀도)을 예상하는 것은 힘들기 때문에 pass한다.
+	 * account는 여기로부터 range를 받아서 사용한 뒤, 한 만큼은 exclude, 안 한 부분은 다시 include로 넘긴다.
+	 */
+	public Range<Long> popRange() {
+		Range<Long> range = null;
 		
+		return range;
 	}
 	
-	// 여러 schedule을 가진 상태에서, 범위 안겹치는 내에서 새로운 schedule을 짜낸다. - paralell
-	public Schedule allocSchedule() {
+	/*
+	 * size만큼 공간을 비우고, 그 size만큼에(대략) 해당하는 range를 만들어서 return한다.
+	 * parallel을 위한 것이며 중요하다.
+	 * 하지만 size가 얼마가 될지 같은 것은 외부에서 결정해서 해줄 수 있는 문제이므로 그렇게 가본다.
+	 */
+	public Range<Long> allocRange(Long size) {
+		Range<Long> range = null;
 		
-	}
-	
-	// schedule의 크기가 늘고 줄고에 따라, 각 range들의 할당량도 변화되게 한다.
-	public void refreshSchedule() {
-		
+		return range;
 	}
 	
 	private long getFirst() {

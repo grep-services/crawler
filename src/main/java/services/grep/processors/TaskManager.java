@@ -62,7 +62,7 @@ public class TaskManager {
 	public void init() {
 		try {
 			List<String[]> parsedResult = FileManager.getInstance().getTaskInitParams();
-			
+			/*
 			Schedule schedule = new Schedule(parsedResult);// 전체의 schedule. 나중에 분할될 수도 있다.
 			
 			// INCLUDE, EXCLUDE로 일단 정렬부터 한다. 그래야 RANGE SUBS 가능.
@@ -90,6 +90,7 @@ public class TaskManager {
 					
 				}
 			}
+			*/
 		} catch (UnexpectedFileFormatException e) {
 			MultiPrinter.getInstance().printException(e.getMessage());
 		}
@@ -160,13 +161,14 @@ class Task extends Thread {
 
 	private String tag;
 	// 초기에 시작한 task라면 모르겠지만, 나중에 추가될 수록 분산된 schedule들을 가지게 될 것이므로 list가 필요하다.
-	private List<Range<Long>> schedules;
+	//private List<Range<Long>> schedules;
+	private Schedule schedule;
 	// 이 task를 수행하기 위해 할당된 accounts. 물론 다 사용하고 나면 unavailable로 해두고 삭제한다. 그럼 timer에 의해 나중에는 사용가능하게 될 것이다.
 	private List<Account> accounts;
 	
-	public Task(String tag, List<Range<Long>> schedules, List<Account> accounts) {
+	public Task(String tag, Schedule schedule, List<Account> accounts) {
 		this.tag = tag;
-		this.schedules = schedules;
+		this.schedule = schedule;
 		this.accounts = accounts;
 	}
 
