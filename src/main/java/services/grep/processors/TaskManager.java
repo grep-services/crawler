@@ -33,74 +33,16 @@ import main.java.services.grep.utils.MultiPrinter;
  */
 public class TaskManager {
 	
-	// interface는 public, method는 public abstract, field는 public static final이 default이다.
-	public interface TaskCallback {
-		void onTaskInit();
-		void onTaskCreated();
-		void onTaskModified();
-		void onTaskFinished();
+	private static final TaskManager taskManager = new TaskManager();
+	
+	private TaskManager() {
 	}
 	
-	private TaskCallback callback;
-	// 초기엔 1개라도, 나중에는 분산될 수 있다. 특히 upper가 -1인 range는 recent부터받으라는 것으로 한다.
-	//private List<Range<Long>> schedules;
+	public TaskManager getInstance() {
+		return taskManager;
+	}
+	
 	private List<Task> tasks;
-
-	public TaskManager(TaskCallback callback) {
-		this(callback, false);
-	}
-
-	// task는 init 안하면 거의 직접 입력하기 쉽지는 않을 것이다.
-	public TaskManager(TaskCallback callback, boolean hasInit) {
-		this.callback = callback;
-		
-		if(hasInit) {
-			init();
-		}
-	}
-	
-	public void init() {
-		try {
-			List<String[]> parsedResult = FileManager.getInstance().getTaskInitParams();
-			/*
-			Schedule schedule = new Schedule(parsedResult);// 전체의 schedule. 나중에 분할될 수도 있다.
-			
-			// INCLUDE, EXCLUDE로 일단 정렬부터 한다. 그래야 RANGE SUBS 가능.
-			parsedResult.sort(new Comparator<String[]>() {
-				@Override
-				public int compare(String[] o1, String[] o2) {
-					if(o1[0].equals("INCLUDE") && o2[0].equals("EXCLUDE")) {
-						return 1;
-					} else if(o1[0].equals("EXCLUDE") && o2[0].equals("INCLUDE")) {
-						return -1;
-					} else {
-						return 0;
-					}
-				}
-			});
-			
-			for(String[] array : parsedResult) {
-				if(array[0].equals("INCLUDE")) {
-					if(schedules == null) {
-						schedules = new ArrayList<Range<Long>>();
-					}
-					
-					schedules.add(arrayToRange(array));
-				} else if(array[0].equals("EXCLUDE")) {
-					
-				}
-			}
-			*/
-		} catch (UnexpectedFileFormatException e) {
-			MultiPrinter.getInstance().printException(e.getMessage());
-		}
-	}
-	
-	public Range<Long> arrayToRange(String[] array) {
-		Range<Long> range = null;
-		
-		return range;
-	}
 
 	/*
 	 * accounts를 받아서 serial용이면 reserve하고, parallel용이면 task를 생성한다. both면 아래 방식으로 처리한다.
@@ -146,11 +88,28 @@ public class TaskManager {
 	 * 어차피 복수개의 account 다룰 일은 init 정도밖에 없고, 나중에 필요하다면 복수개 사용하는 방식으로 upgrade해본다.
 	 */
 	public void createTask(Account account) {
-		callback.onTaskCreated();
+		// task가 없으면 init을 찾아보고, 1개라도 있으면 거기서 쪼개 쓴다.
+		if(tasks == null) {
+			try {
+				List<String[]> parsedResult = FileManager.getInstance().getTaskInitParams();
+				
+				Schedule schedule = new Schedule(parsedResult);
+				
+				Task task = new Task("먹스타그램", schedule);
+				task.pushAccount(account);
+				
+				tasks = new ArrayList<Task>();
+				tasks.add(task);
+			} catch (UnexpectedFileFormatException e) {
+				MultiPrinter.getInstance().printException(e.getMessage());
+			}
+		} else {
+			int num = tasks.size();
+		}
 	}
 	
 	public void modifyTask(Account account) {
-		callback.onTaskModified();
+		//callback.onTaskModified();
 	}
 	
 	//TODO: SCHEDULE CALCULATING 하는 METHOD 필요할듯.
@@ -166,10 +125,9 @@ class Task extends Thread {
 	// 이 task를 수행하기 위해 할당된 accounts. 물론 다 사용하고 나면 unavailable로 해두고 삭제한다. 그럼 timer에 의해 나중에는 사용가능하게 될 것이다.
 	private List<Account> accounts;
 	
-	public Task(String tag, Schedule schedule, List<Account> accounts) {
+	public Task(String tag, Schedule schedule) {
 		this.tag = tag;
 		this.schedule = schedule;
-		this.accounts = accounts;
 	}
 
 	@Override
@@ -196,6 +154,14 @@ class Task extends Thread {
 		}
 	}
 	
+	public void pushAccount(Account account) {
+		if(accounts == null) {
+			accounts = new ArrayList<Account>();			
+		}
+		
+		accounts.add(account);
+	}
+	
 	//TODO: unavailable 가리는건 좋은데, max limit 뽑을 수 있도록 노력하기.
 	private Account popAccount() {
 		Account result = null;
@@ -211,6 +177,10 @@ class Task extends Thread {
 		}
 		
 		return result;
+	}
+	
+	public long getScheduleSize() {
+		return schedule.getSize();
 	}
 	
 }

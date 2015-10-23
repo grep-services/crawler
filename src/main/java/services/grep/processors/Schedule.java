@@ -47,13 +47,13 @@ public class Schedule {
 					includeRanges = new ArrayList<Range<Long>>();
 				}
 				
-				includeRanges.add(toRange(array[1], array[2]));
+				includeRanges.add(Range.between(toLong(array[1]), toLong(array[2])));
 			} else if(array[0].equals("EXCLUDE")) {
 				if(excludeRanges == null) {
 					excludeRanges = new ArrayList<Range<Long>>();
 				}
 				
-				excludeRanges.add(toRange(array[1], array[2]));
+				excludeRanges.add(Range.between(toLong(array[1]), toLong(array[2])));
 			}
 		}
 		
@@ -68,53 +68,66 @@ public class Schedule {
 		calculateRange();
 	}
 	
-	// digit 말고 letter도 있으므로 필요하다.
-	private Range<Long> toRange(String strFrom, String strTo){
-		Long from, to;
+	private Long toLong(String string) {
+		Long result;
 		
-		if(strFrom.equals("First")) {
-			from = getFirst();
-		} else if(strFrom.equals("Last")) {
-			from = getLast();
-		} else if(strFrom.equals("Max")) {
-			from = getMax();
-		} else if(strFrom.equals("Min")) {
-			from = getMin();
+		if(string.equals("First")) {
+			result = getFirst();
+		} else if(string.equals("Last")) {
+			result = getLast();
+		} else if(string.equals("Max")) {
+			result = getMax();
+		} else if(string.equals("Min")) {
+			result = getMin();
 		} else {
-			from = Long.valueOf(strFrom);
+			result = Long.valueOf(string);
 		}
 		
-		if(strTo.equals("First")) {
-			to = getFirst();
-		} else if(strTo.equals("Last")) {
-			to = getLast();
-		} else if(strTo.equals("Max")) {
-			to = getMax();
-		} else if(strTo.equals("Min")) {
-			to = getMin();
-		} else {
-			to = Long.valueOf(strTo);
-		}
-		
-		return Range.between(from, to);
+		return result;
 	}
 	
 	public void sortRangeList(List<Range<Long>> ranges) {
-		
+		ranges.sort(new Comparator<Range<Long>>() {
+			@Override
+			public int compare(Range<Long> o1, Range<Long> o2) {
+				if(o1.isAfterRange(o2)) {
+					return 1;
+				} else if(o1.isBeforeRange(o2)) {
+					return -1;
+				} else {// 이곳에 올 일이 사실 없어야 한다.(겹치는 경우)
+					return 0;
+				}
+			}
+		});
 	}
 	
 	/*
 	 * net = include - exclude 하는 부분.
 	 * 이 과정에서 정렬 역시 되도록 한다.
+	 * 
+	 * exclude 1개를 뽑아서 기준으로 include를 돌면서, 겹치는 것 있으면 include를 그만큼 줄여준다.
+	 * exclude not null인 결과는 나올 수 없다.
+	 * 즉, include가 여러개라서 한번에 exclude를 상쇄 못시킨다 하더라도, 결국은 다 없어질 것이다.
+	 * 그러려면, exclude도 같이 상쇄시켜줘야 한다.
+	 * 즉, 복잡할 것 없이, 단순 n*n 한다.
 	 */
 	public void calculateRange() {
-		
+		for(Range<Long> exclude : excludeRanges) {
+			for(Range<Long> include : includeRanges) {
+				if(exclude.isOverlappedBy(include)) {// common만 있으면 되는 것. 누가 누구를 포함하는지가 아니다.
+					
+				}
+			}
+		}
 	}
 	
 	/*
 	 * account에게 붙여줄 range의 size를 미리 예상하기는 힘들다.
 	 * 대략 예상한다면 효율적일수는 있으나, contents간의 간격(밀도)을 예상하는 것은 힘들기 때문에 pass한다.
 	 * account는 여기로부터 range를 받아서 사용한 뒤, 한 만큼은 exclude, 안 한 부분은 다시 include로 넘긴다.
+	 * 
+	 * serial account에게 넘기려는 도중, 새로운 parallel account로 인해 task가 하나 만들어지게 되어 range 차출이 필요한 등등
+	 * 이 부분에서는 항상 range의 sync에 신경써야 한다. 어디서 sync를 신경써야 할지는 좀더 생각해본다.
 	 */
 	public Range<Long> popRange() {
 		Range<Long> range = null;
@@ -147,6 +160,16 @@ public class Schedule {
 	
 	private long getMax() {
 		return 100;
+	}
+	
+	public long getSize() {
+		long size = 0;
+		
+		for(Range<Long> range : includeRanges) {
+			size += (range.getMaximum() - range.getMinimum());
+		}
+		
+		return size;
 	}
 	
 }

@@ -27,14 +27,15 @@ import main.java.services.grep.utils.MultiPrinter;
  * 
  * 문제 없으므로, 필요한 것들은 다 singleton으로 간다.
  * 
+ * 이 package에서는 이러한 사용자 입력 뿐만 아니라 social media controller라는 개념으로 각각 class를 만들어 쓴다.
+ * 그리고, callback 개념은 이미 singleton으로 서로 쉽게 call할 수 있게 된 이상 일단 없애둔다.
+ * 여기선 다만 init만 해준다.
+ * 
  * @author marine
  * @since 150706
  * 
  */
-public class MainController implements AccountCallback, TaskCallback {
-
-	private AccountProvider accountProvider;
-	private TaskManager taskManager;
+public class MainController {
 	
 	public MainController() {
 		this(false, false, false, false);
@@ -45,8 +46,9 @@ public class MainController implements AccountCallback, TaskCallback {
 			init();
 		}
 		
-		accountProvider = new AccountProvider(this, hasAccounts);
-		taskManager = new TaskManager(this, hasTasks);
+		if(hasAccounts) {
+			AccountProvider.
+		}
 	}
 	
 	public void init() {
